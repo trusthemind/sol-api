@@ -5,7 +5,7 @@
   "main": "dist/server.js",
   "scripts": {
     "build": "tsc",
-    "start": "node dist/server.js",
+    "start": "ts-node --require tsconfig-paths/register dist/server.js",
     "dev": "ts-node-dev --respawn --require tsconfig-paths/register src/server.ts",
     "test": "jest"
   },
