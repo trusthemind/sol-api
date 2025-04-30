@@ -33,7 +33,6 @@ export class AuthController {
     }
   }
 
-  // Login method
   public async login(req: Request, res: Response) {
     try {
       const { email, password } = req.body;

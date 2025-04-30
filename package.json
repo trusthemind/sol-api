@@ -1,7 +1,7 @@
 {
-  "name": "telegram-auth-proxy",
+  "name": "sol-api",
   "version": "1.0.0",
-  "description": "Telegram authentication proxy service",
+  "description": "Sol API Serivce",
   "main": "dist/server.js",
   "scripts": {
     "build": "tsc",
