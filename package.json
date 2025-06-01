@@ -4,8 +4,9 @@
   "description": "Sol API Serivce",
   "main": "dist/server.js",
   "scripts": {
-    "build": "tsc",
-    "start": "ts-node --require tsconfig-paths/register dist/server.js",
+    "build": "tsc && tsc-alias",
+    "start": "node dist/server.js",
+    "start:ts": "ts-node --require tsconfig-paths/register src/server.ts",
     "dev": "ts-node-dev --respawn --require tsconfig-paths/register src/server.ts",
     "test": "jest"
   },
@@ -19,6 +20,7 @@
     "jsonwebtoken": "^9.0.2",
     "mongoose": "^8.13.2",
     "winston": "^3.17.0",
+    "winston-daily-rotate-file": "^5.0.0",
     "zod": "^3.24.3"
   },
   "devDependencies": {
@@ -27,8 +29,10 @@
     "@types/express": "^4.17.17",
     "@types/jsonwebtoken": "^9.0.9",
     "@types/node": "^20.5.1",
+    "@types/winston": "^2.4.4",
     "add": "^2.0.6",
     "ts-node-dev": "^2.0.0",
+    "tsc-alias": "^1.8.16",
     "tsconfig-paths": "^4.2.0",
     "typescript": "^5.1.6"
   }
