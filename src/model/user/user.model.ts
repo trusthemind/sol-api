@@ -13,6 +13,7 @@ export interface IUser extends Document {
   lastName?: string;
   role: UserRole;
   healthId?: string;
+  doctorId?: mongoose.Types.ObjectId;
 }
 
 const userSchema = new mongoose.Schema<IUser>(
@@ -23,6 +24,14 @@ const userSchema = new mongoose.Schema<IUser>(
     firstName: { type: String, required: false },
     lastName: { type: String, required: false },
     healthId: { type: mongoose.Types.ObjectId, required: false },
+    doctorId: [
+      {
+        type: mongoose.Types.ObjectId,
+        ref: "Doctor",
+        required: false,
+        default: [],
+      },
+    ],
     role: {
       type: String,
       enum: Object.values(UserRole),

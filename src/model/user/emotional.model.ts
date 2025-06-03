@@ -1,112 +1,131 @@
 import mongoose, { Document } from "mongoose";
 
-enum MoodType {
-  MOMENTARY = "momentary",
-  DAILY_SUMMARY = "daily_summary"
-}
-
-enum MoodValue {
-  VERY_UNPLEASANT = "very_unpleasant",
-  UNPLEASANT = "unpleasant", 
-  SLIGHTLY_UNPLEASANT = "slightly_unpleasant",
-  NEUTRAL = "neutral",
-  SLIGHTLY_PLEASANT = "slightly_pleasant",
-  PLEASANT = "pleasant",
-  VERY_PLEASANT = "very_pleasant"
-}
-
-enum FeelingDescriptor {
-  // Positive feelings
-  CONFIDENT = "confident",
-  PROUD = "proud",
-  GRATEFUL = "grateful",
-  HOPEFUL = "hopeful",
-  JOYFUL = "joyful",
-  PEACEFUL = "peaceful",
-  CONTENT = "content",
-  EXCITED = "excited",
-  LOVED = "loved",
-  ACCOMPLISHED = "accomplished",
-  ENERGETIC = "energetic",
-  OPTIMISTIC = "optimistic",
-  RELAXED = "relaxed",
-  INSPIRED = "inspired",
-  AMAZED = "amazed",
-  
-  // Neutral/Mixed feelings
-  SURPRISED = "surprised",
-  CURIOUS = "curious",
-  FOCUSED = "focused",
-  DETERMINED = "determined",
-  THOUGHTFUL = "thoughtful",
-  
-  // Negative feelings
-  STRESSED = "stressed",
-  ANXIOUS = "anxious",
+export enum EmotionType {
+  HAPPY = "happy",
   SAD = "sad",
-  FRUSTRATED = "frustrated",
   ANGRY = "angry",
-  OVERWHELMED = "overwhelmed",
+  ANXIOUS = "anxious",
+  EXCITED = "excited",
+  CALM = "calm",
+  FRUSTRATED = "frustrated",
+  GRATEFUL = "grateful",
   LONELY = "lonely",
-  WORRIED = "worried",
-  DISAPPOINTED = "disappointed",
-  TIRED = "tired",
-  IRRITATED = "irritated",
-  CONFUSED = "confused",
-  BORED = "bored",
-  NERVOUS = "nervous",
-  GUILTY = "guilty"
+  CONFIDENT = "confident",
+  OVERWHELMED = "overwhelmed",
+  PEACEFUL = "peaceful",
 }
 
-export interface IEmotionalEntry extends Document {
+export enum IntensityLevel {
+  VERY_LOW = "VERY_LOW",
+  LOW = "LOW",
+  MODERATE = "MODERATE",
+  HIGH = "HIGH",
+  VERY_HIGH = "VERY_HIGH",
+}
+
+export interface IEmotionEntry extends Document {
   userId: mongoose.Types.ObjectId;
-  type: MoodType;
-  moodValue: MoodValue;
-  feelingDescriptors: FeelingDescriptor[];
-  notes?: string;
-  context?: string;
-  timestamp: Date;
-  dayDate: Date; // Date without time for daily grouping
+  doctorId?: mongoose.Types.ObjectId;
+  emotion: EmotionType;
+  intensity: IntensityLevel;
+  description?: string;
+  triggers?: string[];
+  location?: string;
+  weather?: string;
+  activities?: string[];
+  sleepHours?: number;
+  stressLevel?: number;
+  moodBefore?: EmotionType;
+  moodAfter?: EmotionType;
+  tags?: string[];
+  isPrivate: boolean;
+  recordedAt: Date;
+  createdAt: Date;
+  updatedAt: Date;
 }
 
-const emotionalEntrySchema = new mongoose.Schema<IEmotionalEntry>(
+const emotionEntrySchema = new mongoose.Schema<IEmotionEntry>(
   {
-    userId: { 
-      type: mongoose.Schema.Types.ObjectId, 
-      ref: "User", 
-      required: true 
+    userId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+      required: true,
+      index: true,
     },
-    type: {
-      type: String,
-      enum: Object.values(MoodType),
-      required: true
+    doctorId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Doctor",
+      required: false,
     },
-    moodValue: {
+    emotion: {
       type: String,
-      enum: Object.values(MoodValue),
-      required: true
+      enum: Object.values(EmotionType),
+      required: true,
+      index: true,
     },
-    feelingDescriptors: [{
+    intensity: {
       type: String,
-      enum: Object.values(FeelingDescriptor)
-    }],
-    notes: {
-      type: String,
-      maxlength: 500
+      enum: Object.values(IntensityLevel),
+      required: true,
+      default: IntensityLevel.MODERATE,
     },
-    context: {
+    description: {
       type: String,
-      maxlength: 200
+      maxlength: 1000,
     },
-    timestamp: {
+    triggers: [
+      {
+        type: String,
+        maxlength: 100,
+      },
+    ],
+    location: {
+      type: String,
+      maxlength: 100,
+    },
+    weather: {
+      type: String,
+      maxlength: 50,
+    },
+    activities: [
+      {
+        type: String,
+        maxlength: 100,
+      },
+    ],
+    sleepHours: {
+      type: Number,
+      min: 0,
+      max: 24,
+    },
+    stressLevel: {
+      type: Number,
+      min: 1,
+      max: 10,
+    },
+    moodBefore: {
+      type: String,
+      enum: Object.values(EmotionType),
+    },
+    moodAfter: {
+      type: String,
+      enum: Object.values(EmotionType),
+    },
+    tags: [
+      {
+        type: String,
+        maxlength: 50,
+      },
+    ],
+    isPrivate: {
+      type: Boolean,
+      default: false,
+    },
+    recordedAt: {
       type: Date,
-      default: Date.now,
-      required: true
+      required: true,
+      index: true,
     },
-    dayDate: {
-      type: Date,
-      required: true
-    }
   },
   {
     timestamps: true,
@@ -119,38 +138,12 @@ const emotionalEntrySchema = new mongoose.Schema<IEmotionalEntry>(
   }
 );
 
-emotionalEntrySchema.index({ userId: 1, dayDate: -1 });
-emotionalEntrySchema.index({ userId: 1, timestamp: -1 });
-emotionalEntrySchema.index({ userId: 1, type: 1, dayDate: -1 });
+emotionEntrySchema.index({ userId: 1, recordedAt: -1 });
+emotionEntrySchema.index({ emotion: 1, intensity: 1 });
+emotionEntrySchema.index({ userId: 1, emotion: 1, recordedAt: -1 });
+emotionEntrySchema.index({ doctorId: 1, recordedAt: -1 });
 
-emotionalEntrySchema.pre('save', function(next) {
-  if (!this.dayDate) {
-    const date = new Date(this.timestamp);
-    this.dayDate = new Date(date.getFullYear(), date.getMonth(), date.getDate());
-  }
-  next();
-});
-
-emotionalEntrySchema.statics.getEntriesForDay = function(userId: mongoose.Types.ObjectId, date: Date) {
-  const startOfDay = new Date(date.getFullYear(), date.getMonth(), date.getDate());
-  return this.find({
-    userId,
-    dayDate: startOfDay
-  }).sort({ timestamp: -1 });
-};
-
-emotionalEntrySchema.statics.getEntriesForDateRange = function(
-  userId: mongoose.Types.ObjectId, 
-  startDate: Date, 
-  endDate: Date
-) {
-  return this.find({
-    userId,
-    dayDate: {
-      $gte: new Date(startDate.getFullYear(), startDate.getMonth(), startDate.getDate()),
-      $lte: new Date(endDate.getFullYear(), endDate.getMonth(), endDate.getDate())
-    }
-  }).sort({ timestamp: -1 });
-};
-
-export const EmotionalEntry = mongoose.model<IEmotionalEntry>("EmotionalEntry", emotionalEntrySchema);
+export const EmotionEntry = mongoose.model<IEmotionEntry>(
+  "EmotionEntry",
+  emotionEntrySchema
+);
