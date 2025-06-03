@@ -1,5 +1,11 @@
-import { EmotionType, IEmotionEntry, IntensityLevel } from "@/model/user/emotional.model";
+import {
+  EmotionType,
+  IEmotionEntry,
+  IntensityLevel,
+} from "@/model/user/emotional.model";
 import { EmotionStats } from "@/repositories/emotional.repository";
+import OpenAI from "openai";
+import { Logger } from "@/utils/logger";
 
 export interface AnalysisResult {
   insights: string[];
@@ -28,364 +34,470 @@ export interface OverallSummary {
 }
 
 export class OpenAIService {
-  private apiKey: string;
-  private apiUrl: string;
+  private openai: OpenAI | null;
+  private readonly logger: Logger;
+  private readonly model: string = "gpt-4o-2024-08-06";
+  private readonly temperature: number = 0.7;
 
   constructor() {
-    this.apiKey = process.env.OPENAI_API_KEY || '';
-    this.apiUrl = 'https://api.openai.com/v1/chat/completions';
+    this.logger = new Logger("OpenAIService");
+    const apiKey = process.env.OPENAI_API_KEY || "";
+
+    if (apiKey) {
+      this.openai = new OpenAI({
+        apiKey: apiKey,
+        maxRetries: 3,
+        timeout: 30000,
+      });
+      this.logger.info("OpenAI клієнт успішно ініціалізовано");
+    } else {
+      this.openai = null;
+      this.logger.warn(
+        "OpenAI API ключ не знайдено. Буде використано базовий аналіз."
+      );
+    }
   }
 
-  async analyzeEmotions(emotions: IEmotionEntry[], stats: EmotionStats, patterns: any[]): Promise<AnalysisResult> {
+  async analyzeEmotions(
+    emotions: IEmotionEntry[],
+    stats: EmotionStats,
+    patterns: any[]
+  ): Promise<AnalysisResult> {
     try {
-      if (!this.apiKey) {
+      if (!this.openai) {
         return this.generateBasicAnalysis(emotions, stats, patterns);
       }
 
       const prompt = this.buildAnalysisPrompt(emotions, stats, patterns);
-      const response = await this.callOpenAI(prompt, 'analysis');
-      
+      const response = await this.callOpenAI(prompt, "analysis");
+
       return this.parseAnalysisResponse(response);
     } catch (error) {
-      console.error('OpenAI analysis error:', error);
+      this.logger.error("Помилка аналізу емоцій:", error);
       return this.generateBasicAnalysis(emotions, stats, patterns);
     }
   }
 
-  async generateRecommendations(emotions: IEmotionEntry[], stats: EmotionStats): Promise<RecommendationResult> {
+  async generateRecommendations(
+    emotions: IEmotionEntry[],
+    stats: EmotionStats
+  ): Promise<RecommendationResult> {
     try {
-      if (!this.apiKey) {
+      if (!this.openai) {
         return this.generateBasicRecommendations(emotions, stats);
       }
 
       const prompt = this.buildRecommendationPrompt(emotions, stats);
-      const response = await this.callOpenAI(prompt, 'recommendations');
-      
+      const response = await this.callOpenAI(prompt, "recommendations");
+
       return this.parseRecommendationResponse(response);
     } catch (error) {
-      console.error('OpenAI recommendation error:', error);
+      this.logger.error("Помилка генерації рекомендацій:", error);
       return this.generateBasicRecommendations(emotions, stats);
     }
   }
 
   async generateOverallSummary(
-    emotions: IEmotionEntry[], 
-    stats: EmotionStats, 
-    analysis: AnalysisResult, 
+    emotions: IEmotionEntry[],
+    stats: EmotionStats,
+    analysis: AnalysisResult,
     recommendations: RecommendationResult
   ): Promise<OverallSummary> {
     try {
-      if (!this.apiKey) {
-        return this.generateBasicSummary(emotions, stats, analysis, recommendations);
+      if (!this.openai) {
+        return this.generateBasicSummary(
+          emotions,
+          stats,
+          analysis,
+          recommendations
+        );
       }
 
-      const prompt = this.buildSummaryPrompt(emotions, stats, analysis, recommendations);
-      const response = await this.callOpenAI(prompt, 'summary');
-      
+      const prompt = this.buildSummaryPrompt(
+        emotions,
+        stats,
+        analysis,
+        recommendations
+      );
+      const response = await this.callOpenAI(prompt, "summary");
+
       return this.parseSummaryResponse(response);
     } catch (error) {
-      console.error('OpenAI summary error:', error);
-      return this.generateBasicSummary(emotions, stats, analysis, recommendations);
+      this.logger.error("Помилка генерації підсумку:", error);
+      return this.generateBasicSummary(
+        emotions,
+        stats,
+        analysis,
+        recommendations
+      );
     }
   }
 
   private async callOpenAI(prompt: string, type: string): Promise<string> {
-    const response = await fetch(this.apiUrl, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${this.apiKey}`
-      },
-      body: JSON.stringify({
-        model: 'gpt-3.5-turbo',
-        messages: [
-          {
-            role: 'system',
-            content: 'You are a helpful mental health assistant that provides insights and recommendations based on emotional data. Always be supportive and professional. Intensity levels are: VERY_LOW, LOW, MODERATE, HIGH, VERY_HIGH.'
-          },
-          {
-            role: 'user',
-            content: prompt
-          }
-        ],
-        temperature: 0.7
-      })
-    });
-
-    if (!response.ok) {
-      throw new Error(`OpenAI API error: ${response.statusText}`);
+    if (!this.openai) {
+      throw new Error("OpenAI клієнт не ініціалізовано");
     }
 
-    const data = await response.json();
-    return data.choices[0]?.message?.content || '';
+    try {
+      const completion = await this.openai.chat.completions.create({
+        model: this.model,
+        messages: [
+          {
+            role: "system",
+            content: `Ти досвідчений психолог-консультант, який аналізує емоційні дані та надає підтримку українською мовою. 
+            Завжди будь емпатійним та професійним. Рівні інтенсивності: VERY_LOW (дуже низький), LOW (низький), 
+            MODERATE (помірний), HIGH (високий), VERY_HIGH (дуже високий). Всі відповіді надавай українською мовою.`,
+          },
+          {
+            role: "user",
+            content: prompt,
+          },
+        ],
+        temperature: this.temperature,
+        response_format: { type: "json_object" },
+      });
+
+      return completion.choices[0]?.message?.content || "";
+    } catch (error: any) {
+      this.handleOpenAIError(error);
+      throw error;
+    }
   }
 
-  private buildAnalysisPrompt(emotions: IEmotionEntry[], stats: EmotionStats, patterns: any[]): string {
-    const recentEmotions = emotions.slice(0, 10).map(e => ({
+  private handleOpenAIError(error: any): void {
+    if (error.status === 429) {
+      this.logger.error("Перевищено ліміт запитів. Спробуйте пізніше.");
+    } else if (error.status === 401) {
+      this.logger.error("Недійсний API ключ.");
+    } else if (error.status === 503) {
+      this.logger.error("Сервіс OpenAI тимчасово недоступний.");
+    } else {
+      this.logger.error("Невідома помилка OpenAI:", error);
+    }
+  }
+
+  private buildAnalysisPrompt(
+    emotions: IEmotionEntry[],
+    stats: EmotionStats,
+    patterns: any[]
+  ): string {
+    const recentEmotions = emotions.slice(0, 10).map((e) => ({
       emotion: e.emotion,
       intensity: e.intensity,
       date: e.recordedAt,
       triggers: e.triggers,
-      stressLevel: e.stressLevel
+      stressLevel: e.stressLevel,
     }));
 
     return `
-    Analyze the following emotional data and provide insights:
+    Проаналізуй наступні емоційні дані та надай інсайти українською мовою:
 
-    Stats:
-    - Total entries: ${stats.totalEntries}
-    - Most common intensity: ${stats.mostCommonIntensity}
-    - Most common emotion: ${stats.mostCommonEmotion}
-    - Average stress level: ${stats.averageStressLevel}
+    Статистика:
+    - Загальна кількість записів: ${stats.totalEntries}
+    - Найчастіша інтенсивність: ${stats.mostCommonIntensity}
+    - Найчастіша емоція: ${stats.mostCommonEmotion}
+    - Середній рівень стресу: ${stats.averageStressLevel}
 
-    Recent emotions: ${JSON.stringify(recentEmotions, null, 2)}
+    Останні емоції: ${JSON.stringify(recentEmotions, null, 2)}
 
-    Emotion distribution: ${JSON.stringify(stats.emotionDistribution, null, 2)}
+    Розподіл емоцій: ${JSON.stringify(stats.emotionDistribution, null, 2)}
     
-    Intensity distribution: ${JSON.stringify(stats.intensityDistribution, null, 2)}
+    Розподіл інтенсивності: ${JSON.stringify(
+      stats.intensityDistribution,
+      null,
+      2
+    )}
 
-    Please provide a JSON response with:
-    - insights: Array of key insights about emotional patterns
-    - trends: Array of observed trends
-    - concerns: Array of potential concerns
-    - positives: Array of positive observations
-    - emotionalBalance: Overall assessment of emotional balance
-    - riskFactors: Array of risk factors to monitor
+    Надай JSON відповідь українською мовою з такими полями:
+    - insights: Масив ключових інсайтів про емоційні патерни
+    - trends: Масив спостережених трендів
+    - concerns: Масив потенційних проблем
+    - positives: Масив позитивних спостережень
+    - emotionalBalance: Загальна оцінка емоційного балансу
+    - riskFactors: Масив факторів ризику для моніторингу
 
-    Note: Intensity levels range from VERY_LOW to VERY_HIGH (strings, not numbers).
+    Примітка: Рівні інтенсивності від VERY_LOW до VERY_HIGH (рядки, не числа).
     `;
   }
 
-  private buildRecommendationPrompt(emotions: IEmotionEntry[], stats: EmotionStats): string {
+  private buildRecommendationPrompt(
+    emotions: IEmotionEntry[],
+    stats: EmotionStats
+  ): string {
     return `
-    Based on this emotional data, provide personalized recommendations:
+    На основі цих емоційних даних надай персоналізовані рекомендації українською мовою:
 
-    Most common intensity: ${stats.mostCommonIntensity}
-    Most common emotion: ${stats.mostCommonEmotion}
-    Average stress level: ${stats.averageStressLevel}
-    Total entries: ${stats.totalEntries}
+    Найчастіша інтенсивність: ${stats.mostCommonIntensity}
+    Найчастіша емоція: ${stats.mostCommonEmotion}
+    Середній рівень стресу: ${stats.averageStressLevel}
+    Загальна кількість записів: ${stats.totalEntries}
 
-    Emotion distribution: ${JSON.stringify(stats.emotionDistribution, null, 2)}
+    Розподіл емоцій: ${JSON.stringify(stats.emotionDistribution, null, 2)}
     
-    Intensity distribution: ${JSON.stringify(stats.intensityDistribution, null, 2)}
+    Розподіл інтенсивності: ${JSON.stringify(
+      stats.intensityDistribution,
+      null,
+      2
+    )}
 
-    Please provide a JSON response with:
-    - immediate: Array of immediate actions to take today
-    - shortTerm: Array of actions for the next week
-    - longTerm: Array of long-term strategies
-    - professionalHelp: Boolean indicating if professional help is recommended
-    - resources: Array of helpful resources or techniques
-    - coping: Array of coping strategies
+    Надай JSON відповідь українською мовою з такими полями:
+    - immediate: Масив негайних дій на сьогодні
+    - shortTerm: Масив дій на наступний тиждень
+    - longTerm: Масив довгострокових стратегій
+    - professionalHelp: Boolean чи рекомендована професійна допомога
+    - resources: Масив корисних ресурсів або технік
+    - coping: Масив стратегій подолання
 
-    Note: Intensity levels are VERY_LOW, LOW, MODERATE, HIGH, VERY_HIGH (strings).
+    Примітка: Рівні інтенсивності VERY_LOW, LOW, MODERATE, HIGH, VERY_HIGH (рядки).
     `;
   }
 
   private buildSummaryPrompt(
-    emotions: IEmotionEntry[], 
-    stats: EmotionStats, 
-    analysis: AnalysisResult, 
+    emotions: IEmotionEntry[],
+    stats: EmotionStats,
+    analysis: AnalysisResult,
     recommendations: RecommendationResult
   ): string {
     return `
-    Create an overall summary based on this emotional health data:
+    Створи загальний підсумок на основі цих даних емоційного здоров'я українською мовою:
 
-    Key stats: ${JSON.stringify({
+    Ключова статистика: ${JSON.stringify({
       totalEntries: stats.totalEntries,
       mostCommonIntensity: stats.mostCommonIntensity,
       dominantEmotion: stats.mostCommonEmotion,
-      averageStressLevel: stats.averageStressLevel
+      averageStressLevel: stats.averageStressLevel,
     })}
 
-    Analysis insights: ${analysis.insights.join(', ')}
-    Main concerns: ${analysis.concerns.join(', ')}
-    Recommendations: ${recommendations.immediate.concat(recommendations.shortTerm).join(', ')}
+    Інсайти аналізу: ${analysis.insights.join(", ")}
+    Основні проблеми: ${analysis.concerns.join(", ")}
+    Рекомендації: ${recommendations.immediate
+      .concat(recommendations.shortTerm)
+      .join(", ")}
 
-    Please provide a JSON response with:
-    - emotionalWellbeing: Overall wellbeing assessment
-    - keyInsights: Array of most important insights
-    - actionPlan: Array of prioritized action items
-    - progress: Assessment of emotional progress
-    - nextSteps: Array of next steps to take
+    Надай JSON відповідь українською мовою з такими полями:
+    - emotionalWellbeing: Загальна оцінка емоційного благополуччя
+    - keyInsights: Масив найважливіших інсайтів
+    - actionPlan: Масив пріоритетних дій
+    - progress: Оцінка емоційного прогресу
+    - nextSteps: Масив наступних кроків
     `;
   }
 
   private parseAnalysisResponse(response: string): AnalysisResult {
     try {
-      return JSON.parse(response);
-    } catch {
+      const parsed = JSON.parse(response);
+      return parsed;
+    } catch (error) {
+      this.logger.error("Помилка парсингу відповіді аналізу:", error);
       return {
-        insights: [response.substring(0, 200)],
-        trends: ['Unable to parse detailed trends'],
+        insights: ["Не вдалось розпарсити детальний аналіз"],
+        trends: ["Дані тренду недоступні"],
         concerns: [],
         positives: [],
-        emotionalBalance: 'Analysis pending',
-        riskFactors: []
+        emotionalBalance: "Аналіз в процесі",
+        riskFactors: [],
       };
     }
   }
 
   private parseRecommendationResponse(response: string): RecommendationResult {
     try {
-      return JSON.parse(response);
-    } catch {
+      const parsed = JSON.parse(response);
+      return parsed;
+    } catch (error) {
+      this.logger.error("Помилка парсингу відповіді рекомендацій:", error);
       return {
-        immediate: [response.substring(0, 100)],
+        immediate: ["Не вдалось отримати детальні рекомендації"],
         shortTerm: [],
         longTerm: [],
         professionalHelp: false,
         resources: [],
-        coping: []
+        coping: [],
       };
     }
   }
 
   private parseSummaryResponse(response: string): OverallSummary {
     try {
-      return JSON.parse(response);
-    } catch {
+      const parsed = JSON.parse(response);
+      return parsed;
+    } catch (error) {
+      this.logger.error("Помилка парсингу відповіді підсумку:", error);
       return {
-        emotionalWellbeing: response.substring(0, 200),
+        emotionalWellbeing: "Підсумок формується",
         keyInsights: [],
         actionPlan: [],
-        progress: 'Summary in progress',
-        nextSteps: []
+        progress: "Аналіз в процесі",
+        nextSteps: [],
       };
     }
   }
 
-  private generateBasicAnalysis(emotions: IEmotionEntry[], stats: EmotionStats, patterns: any[]): AnalysisResult {
-    const insights = [];
-    const concerns = [];
-    const positives = [];
+  private generateBasicAnalysis(
+    emotions: IEmotionEntry[],
+    stats: EmotionStats,
+    patterns: any[]
+  ): AnalysisResult {
+    const insights: string[] = [];
+    const concerns: string[] = [];
+    const positives: string[] = [];
     const trends: string[] = [];
-    const riskFactors = [];
+    const riskFactors: string[] = [];
 
-    // Analyze intensity patterns using string enums
-    const highIntensityCount = (stats.intensityDistribution[IntensityLevel.HIGH] || 0) + 
-                              (stats.intensityDistribution[IntensityLevel.VERY_HIGH] || 0);
+    // Аналіз патернів інтенсивності
+    const highIntensityCount =
+      (stats.intensityDistribution[IntensityLevel.HIGH] || 0) +
+      (stats.intensityDistribution[IntensityLevel.VERY_HIGH] || 0);
     const totalEntries = stats.totalEntries;
 
     if (highIntensityCount > totalEntries * 0.6) {
-      insights.push("Your emotions tend to be highly intense");
-      concerns.push("High emotional intensity may indicate stress");
+      insights.push("Ваші емоції зазвичай мають високу інтенсивність");
+      concerns.push("Висока емоційна інтенсивність може вказувати на стрес");
     } else if (highIntensityCount < totalEntries * 0.2) {
-      insights.push("Your emotional responses are generally mild");
-      positives.push("You maintain emotional stability");
+      insights.push("Ваші емоційні реакції загалом помірні");
+      positives.push("Ви підтримуєте емоційну стабільність");
     }
 
-    // Analyze stress levels
+    // Аналіз рівнів стресу
     if (stats.averageStressLevel > 7) {
-      concerns.push("Elevated stress levels detected");
-      riskFactors.push("Chronic high stress");
+      concerns.push("Виявлено підвищений рівень стресу");
+      riskFactors.push("Хронічний високий стрес");
     } else if (stats.averageStressLevel < 4) {
-      positives.push("Well-managed stress levels");
+      positives.push("Добре керований рівень стресу");
     }
 
-    // Analyze emotion distribution
-    const negativeEmotions = [EmotionType.SAD, EmotionType.ANGRY, EmotionType.ANXIOUS, 
-                             EmotionType.FRUSTRATED, EmotionType.OVERWHELMED, EmotionType.LONELY];
-    const negativeCount = negativeEmotions.reduce((sum, emotion) => 
-      sum + (stats.emotionDistribution[emotion] || 0), 0);
-    
+    // Аналіз розподілу емоцій
+    const negativeEmotions = [
+      EmotionType.SAD,
+      EmotionType.ANGRY,
+      EmotionType.ANXIOUS,
+      EmotionType.FRUSTRATED,
+      EmotionType.OVERWHELMED,
+      EmotionType.LONELY,
+    ];
+    const negativeCount = negativeEmotions.reduce(
+      (sum, emotion) => sum + (stats.emotionDistribution[emotion] || 0),
+      0
+    );
+
     if (negativeCount > totalEntries * 0.6) {
-      concerns.push("High frequency of negative emotions");
-      riskFactors.push("Persistent negative mood patterns");
+      concerns.push("Висока частота негативних емоцій");
+      riskFactors.push("Стійкі патерни негативного настрою");
     } else {
-      positives.push("Good emotional balance maintained");
+      positives.push("Підтримується гарний емоційний баланс");
     }
 
-    // Analyze tracking consistency
+    // Аналіз послідовності відстеження
     if (totalEntries > 20) {
-      insights.push("Consistent emotion tracking shows good self-awareness");
-      positives.push("Regular emotional check-ins");
+      insights.push(
+        "Послідовне відстеження емоцій показує гарну самосвідомість"
+      );
+      positives.push("Регулярні емоційні перевірки");
     } else if (totalEntries < 5) {
-      insights.push("Limited tracking data available");
+      insights.push("Доступні обмежені дані відстеження");
     }
 
-    // Analyze most common intensity
+    // Аналіз найчастішої інтенсивності
     if (stats.mostCommonIntensity === IntensityLevel.VERY_HIGH) {
-      concerns.push("Predominant very high intensity emotions");
-      riskFactors.push("Emotional overwhelm patterns");
+      concerns.push("Переважають емоції дуже високої інтенсивності");
+      riskFactors.push("Патерни емоційного перевантаження");
     } else if (stats.mostCommonIntensity === IntensityLevel.MODERATE) {
-      positives.push("Balanced emotional intensity levels");
+      positives.push("Збалансовані рівні емоційної інтенсивності");
     }
 
     return {
       insights,
-      trends: trends.length ? trends : ["Tracking period may be too short for trend analysis"],
+      trends: trends.length
+        ? trends
+        : ["Період відстеження може бути занадто коротким для аналізу трендів"],
       concerns,
       positives,
-      emotionalBalance: concerns.length > positives.length ? "Needs attention" : "Generally balanced",
-      riskFactors
+      emotionalBalance:
+        concerns.length > positives.length
+          ? "Потребує уваги"
+          : "Загалом збалансований",
+      riskFactors,
     };
   }
 
-  private generateBasicRecommendations(emotions: IEmotionEntry[], stats: EmotionStats): RecommendationResult {
-    const immediate = [];
-    const shortTerm = [];
-    const longTerm = [];
-    const resources = [];
-    const coping = [];
+  private generateBasicRecommendations(
+    emotions: IEmotionEntry[],
+    stats: EmotionStats
+  ): RecommendationResult {
+    const immediate: string[] = [];
+    const shortTerm: string[] = [];
+    const longTerm: string[] = [];
+    const resources: string[] = [];
+    const coping: string[] = [];
     let professionalHelp = false;
 
-    // Stress-based recommendations
+    // Рекомендації на основі стресу
     if (stats.averageStressLevel > 7) {
-      immediate.push("Practice deep breathing exercises");
-      immediate.push("Take short breaks throughout the day");
-      shortTerm.push("Consider stress management techniques");
+      immediate.push("Практикуйте глибоке дихання");
+      immediate.push("Робіть короткі перерви протягом дня");
+      shortTerm.push("Розгляньте техніки управління стресом");
       professionalHelp = true;
     }
 
-    // Intensity-based recommendations
-    const highIntensityCount = (stats.intensityDistribution[IntensityLevel.HIGH] || 0) + 
-                              (stats.intensityDistribution[IntensityLevel.VERY_HIGH] || 0);
-    
+    // Рекомендації на основі інтенсивності
+    const highIntensityCount =
+      (stats.intensityDistribution[IntensityLevel.HIGH] || 0) +
+      (stats.intensityDistribution[IntensityLevel.VERY_HIGH] || 0);
+
     if (highIntensityCount > stats.totalEntries * 0.5) {
-      immediate.push("Use grounding techniques");
-      coping.push("5-4-3-2-1 sensory grounding exercise");
-      shortTerm.push("Practice emotional regulation skills");
+      immediate.push("Використовуйте техніки заземлення");
+      coping.push("Вправа сенсорного заземлення 5-4-3-2-1");
+      shortTerm.push("Практикуйте навички емоційної регуляції");
     }
 
-    // Emotion-specific recommendations
+    // Рекомендації для конкретних емоцій
     const sadnessCount = stats.emotionDistribution[EmotionType.SAD] || 0;
     if (sadnessCount > stats.totalEntries * 0.3) {
-      immediate.push("Engage in activities you enjoy");
-      shortTerm.push("Connect with supportive friends or family");
-      longTerm.push("Consider counseling or therapy");
+      immediate.push("Займіться улюбленими справами");
+      shortTerm.push("Зв'яжіться з друзями або родиною для підтримки");
+      longTerm.push("Розгляньте можливість консультації з психологом");
       professionalHelp = true;
     }
 
     const anxietyCount = stats.emotionDistribution[EmotionType.ANXIOUS] || 0;
     if (anxietyCount > stats.totalEntries * 0.3) {
-      immediate.push("Practice mindfulness meditation");
-      coping.push("Progressive muscle relaxation");
-      resources.push("Meditation apps like Headspace or Calm");
+      immediate.push("Практикуйте медитацію усвідомленості");
+      coping.push("Прогресивна м'язова релаксація");
+      resources.push("Додатки для медитації: Headspace, Calm");
     }
 
-    const overwhelmedCount = stats.emotionDistribution[EmotionType.OVERWHELMED] || 0;
+    const overwhelmedCount =
+      stats.emotionDistribution[EmotionType.OVERWHELMED] || 0;
     if (overwhelmedCount > stats.totalEntries * 0.2) {
-      immediate.push("Break tasks into smaller, manageable steps");
-      shortTerm.push("Practice saying no to additional commitments");
-      coping.push("Time management and prioritization techniques");
+      immediate.push("Розбийте завдання на менші, керовані кроки");
+      shortTerm.push("Навчіться говорити 'ні' додатковим зобов'язанням");
+      coping.push("Техніки управління часом та пріоритизації");
     }
 
-    // General wellness recommendations
-    longTerm.push("Maintain regular exercise routine");
-    longTerm.push("Establish consistent sleep schedule");
-    resources.push("Journal writing for emotional processing");
-    resources.push("Mental health support groups");
+    // Загальні рекомендації щодо благополуччя
+    longTerm.push("Підтримуйте регулярний режим фізичних вправ");
+    longTerm.push("Встановіть постійний графік сну");
+    resources.push("Ведення щоденника для емоційної обробки");
+    resources.push("Групи підтримки психічного здоров'я");
 
-    // Positive emotion recommendations
-    const positiveEmotions = [EmotionType.HAPPY, EmotionType.EXCITED, EmotionType.CALM, 
-                             EmotionType.GRATEFUL, EmotionType.CONFIDENT, EmotionType.PEACEFUL];
-    const positiveCount = positiveEmotions.reduce((sum, emotion) => 
-      sum + (stats.emotionDistribution[emotion] || 0), 0);
+    // Рекомендації для позитивних емоцій
+    const positiveEmotions = [
+      EmotionType.HAPPY,
+      EmotionType.EXCITED,
+      EmotionType.CALM,
+      EmotionType.GRATEFUL,
+      EmotionType.CONFIDENT,
+      EmotionType.PEACEFUL,
+    ];
+    const positiveCount = positiveEmotions.reduce(
+      (sum, emotion) => sum + (stats.emotionDistribution[emotion] || 0),
+      0
+    );
 
     if (positiveCount < stats.totalEntries * 0.3) {
-      shortTerm.push("Schedule enjoyable activities");
-      longTerm.push("Build positive social connections");
-      resources.push("Gratitude practice exercises");
+      shortTerm.push("Заплануйте приємні заходи");
+      longTerm.push("Будуйте позитивні соціальні зв'язки");
+      resources.push("Вправи вдячності");
     }
 
     return {
@@ -394,36 +506,67 @@ export class OpenAIService {
       longTerm,
       professionalHelp,
       resources,
-      coping
+      coping,
     };
   }
 
   private generateBasicSummary(
-    emotions: IEmotionEntry[], 
-    stats: EmotionStats, 
-    analysis: AnalysisResult, 
+    emotions: IEmotionEntry[],
+    stats: EmotionStats,
+    analysis: AnalysisResult,
     recommendations: RecommendationResult
   ): OverallSummary {
     const wellbeingScore = this.calculateWellbeingScore(stats);
-    
+
     return {
-      emotionalWellbeing: wellbeingScore > 7 ? "Good" : wellbeingScore > 4 ? "Fair" : "Needs attention",
+      emotionalWellbeing:
+        wellbeingScore > 7
+          ? "Добре"
+          : wellbeingScore > 4
+          ? "Задовільне"
+          : "Потребує уваги",
       keyInsights: analysis.insights.slice(0, 3),
-      actionPlan: recommendations.immediate.concat(recommendations.shortTerm.slice(0, 2)),
-      progress: `Tracked ${stats.totalEntries} emotions with most common intensity of ${stats.mostCommonIntensity}`,
-      nextSteps: recommendations.longTerm.slice(0, 3)
+      actionPlan: recommendations.immediate.concat(
+        recommendations.shortTerm.slice(0, 2)
+      ),
+      progress: `Відстежено ${
+        stats.totalEntries
+      } емоцій з найчастішою інтенсивністю ${this.translateIntensity(
+        stats.mostCommonIntensity
+      )}`,
+      nextSteps: recommendations.longTerm.slice(0, 3),
     };
   }
 
+  private translateIntensity(intensity: IntensityLevel): string {
+    const translations: Record<IntensityLevel, string> = {
+      [IntensityLevel.VERY_LOW]: "дуже низька",
+      [IntensityLevel.LOW]: "низька",
+      [IntensityLevel.MODERATE]: "помірна",
+      [IntensityLevel.HIGH]: "висока",
+      [IntensityLevel.VERY_HIGH]: "дуже висока",
+    };
+    return translations[intensity] || intensity;
+  }
+
   private calculateWellbeingScore(stats: EmotionStats): number {
-    const positiveEmotions = [EmotionType.HAPPY, EmotionType.EXCITED, EmotionType.CALM, 
-                             EmotionType.GRATEFUL, EmotionType.CONFIDENT, EmotionType.PEACEFUL];
-    const positiveCount = positiveEmotions.reduce((sum, emotion) => 
-      sum + (stats.emotionDistribution[emotion] || 0), 0);
-    
-    const positiveRatio = positiveCount / stats.totalEntries;
-    
-    let intensityFactor = 0.5; // Default moderate score
+    const positiveEmotions = [
+      EmotionType.HAPPY,
+      EmotionType.EXCITED,
+      EmotionType.CALM,
+      EmotionType.GRATEFUL,
+      EmotionType.CONFIDENT,
+      EmotionType.PEACEFUL,
+    ];
+    const positiveCount = positiveEmotions.reduce(
+      (sum, emotion) => sum + (stats.emotionDistribution[emotion] || 0),
+      0
+    );
+
+    const positiveRatio =
+      stats.totalEntries > 0 ? positiveCount / stats.totalEntries : 0;
+
+    let intensityFactor = 0.5;
     switch (stats.mostCommonIntensity) {
       case IntensityLevel.VERY_LOW:
       case IntensityLevel.LOW:
@@ -439,9 +582,13 @@ export class OpenAIService {
         intensityFactor = 0.2;
         break;
     }
-    
+
     const stressFactor = (11 - stats.averageStressLevel) / 10;
-    
-    return Math.round((positiveRatio * 4 + intensityFactor * 3 + stressFactor * 3) * 10) / 10;
+
+    return (
+      Math.round(
+        (positiveRatio * 4 + intensityFactor * 3 + stressFactor * 3) * 10
+      ) / 10
+    );
   }
 }

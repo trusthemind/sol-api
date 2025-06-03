@@ -4,8 +4,8 @@ import { ERROR_CODES } from "./codes";
 export class UserNotFoundError extends AppError {
   constructor(identifier?: string) {
     const message = identifier
-      ? `User with ${identifier} not found`
-      : "User not found";
+      ? `Користувача з ${identifier} не знайдено`
+      : "Користувача не знайдено";
     super(message, 404, ERROR_CODES.USER_NOT_FOUND);
   }
 }
@@ -13,15 +13,17 @@ export class UserNotFoundError extends AppError {
 export class UserAlreadyExistsError extends AppError {
   constructor(identifier?: string) {
     const message = identifier
-      ? `User with ${identifier} already exists`
-      : "User already exists";
+      ? `Користувач з ${identifier} вже існує`
+      : "Користувач вже існує";
     super(message, 409, ERROR_CODES.USER_ALREADY_EXISTS);
   }
 }
 
 export class InvalidUserIdError extends AppError {
   constructor(id?: string) {
-    const message = id ? `Invalid user ID: ${id}` : "Invalid user ID format";
+    const message = id
+      ? `Недійсний ID користувача: ${id}`
+      : "Недійсний формат ID користувача";
     super(message, 400, ERROR_CODES.INVALID_USER_ID);
   }
 }
@@ -29,8 +31,8 @@ export class InvalidUserIdError extends AppError {
 export class UserCreationFailedError extends AppError {
   constructor(reason?: string) {
     const message = reason
-      ? `Failed to create user: ${reason}`
-      : "Failed to create user";
+      ? `Не вдалося створити користувача: ${reason}`
+      : "Не вдалося створити користувача";
     super(message, 500, ERROR_CODES.USER_CREATION_FAILED);
   }
 }
@@ -38,8 +40,8 @@ export class UserCreationFailedError extends AppError {
 export class UserUpdateFailedError extends AppError {
   constructor(reason?: string) {
     const message = reason
-      ? `Failed to update user: ${reason}`
-      : "Failed to update user";
+      ? `Не вдалося оновити користувача: ${reason}`
+      : "Не вдалося оновити користувача";
     super(message, 500, ERROR_CODES.USER_UPDATE_FAILED);
   }
 }
@@ -47,8 +49,8 @@ export class UserUpdateFailedError extends AppError {
 export class UserDeletionFailedError extends AppError {
   constructor(reason?: string) {
     const message = reason
-      ? `Failed to delete user: ${reason}`
-      : "Failed to delete user";
+      ? `Не вдалося видалити користувача: ${reason}`
+      : "Не вдалося видалити користувача";
     super(message, 500, ERROR_CODES.USER_DELETION_FAILED);
   }
 }
@@ -56,7 +58,7 @@ export class UserDeletionFailedError extends AppError {
 export class InvalidCurrentPasswordError extends AppError {
   constructor() {
     super(
-      "Current password is incorrect",
+      "Поточний пароль неправильний",
       400,
       ERROR_CODES.INVALID_CURRENT_PASSWORD
     );
@@ -66,8 +68,8 @@ export class InvalidCurrentPasswordError extends AppError {
 export class PasswordUpdateFailedError extends AppError {
   constructor(reason?: string) {
     const message = reason
-      ? `Failed to update password: ${reason}`
-      : "Failed to update password";
+      ? `Не вдалося оновити пароль: ${reason}`
+      : "Не вдалося оновити пароль";
     super(message, 500, ERROR_CODES.PASSWORD_UPDATE_FAILED);
   }
 }
@@ -75,8 +77,8 @@ export class PasswordUpdateFailedError extends AppError {
 export class ProfileUpdateFailedError extends AppError {
   constructor(reason?: string) {
     const message = reason
-      ? `Failed to update profile: ${reason}`
-      : "Failed to update profile";
+      ? `Не вдалося оновити профіль: ${reason}`
+      : "Не вдалося оновити профіль";
     super(message, 500, ERROR_CODES.PROFILE_UPDATE_FAILED);
   }
 }
@@ -84,7 +86,7 @@ export class ProfileUpdateFailedError extends AppError {
 export class CannotDeleteSelfError extends AppError {
   constructor() {
     super(
-      "Cannot delete your own account through this endpoint",
+      "Неможливо видалити власний обліковий запис через цю точку доступу",
       400,
       ERROR_CODES.CANNOT_DELETE_SELF
     );

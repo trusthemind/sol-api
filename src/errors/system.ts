@@ -2,7 +2,7 @@ import { AppError } from "./base";
 import { ERROR_CODES } from "./codes";
 
 export class InternalServerError extends AppError {
-  constructor(message: string = "Internal server error occurred") {
+  constructor(message: string = "Сталася внутрішня помилка сервера") {
     super(message, 500, ERROR_CODES.INTERNAL_SERVER_ERROR);
   }
 }
@@ -10,8 +10,8 @@ export class InternalServerError extends AppError {
 export class ServiceUnavailableError extends AppError {
   constructor(service?: string) {
     const message = service 
-      ? `${service} service is currently unavailable`
-      : "Service temporarily unavailable";
+      ? `Сервіс ${service} наразі недоступний`
+      : "Сервіс тимчасово недоступний";
     super(message, 503, ERROR_CODES.SERVICE_UNAVAILABLE);
   }
 }
@@ -19,23 +19,23 @@ export class ServiceUnavailableError extends AppError {
 export class ConfigurationError extends AppError {
   constructor(setting?: string) {
     const message = setting 
-      ? `Configuration error: ${setting} is not properly configured`
-      : "System configuration error";
+      ? `Помилка конфігурації: ${setting} налаштовано неправильно`
+      : "Помилка конфігурації системи";
     super(message, 500, ERROR_CODES.CONFIGURATION_ERROR);
   }
 }
 
 export class MaintenanceModeError extends AppError {
   constructor() {
-    super("System is currently under maintenance", 503, ERROR_CODES.MAINTENANCE_MODE);
+    super("Система наразі на технічному обслуговуванні", 503, ERROR_CODES.MAINTENANCE_MODE);
   }
 }
 
 export class RegistrationError extends AppError {
   constructor(reason?: string) {
     const message = reason 
-      ? `Registration failed: ${reason}`
-      : "Registration process failed";
+      ? `Реєстрація не вдалася: ${reason}`
+      : "Процес реєстрації не вдався";
     super(message, 500, ERROR_CODES.REGISTRATION_ERROR);
   }
 }
@@ -43,8 +43,8 @@ export class RegistrationError extends AppError {
 export class LoginError extends AppError {
   constructor(reason?: string) {
     const message = reason 
-      ? `Login failed: ${reason}`
-      : "Login process failed";
+      ? `Вхід не вдався: ${reason}`
+      : "Процес входу не вдався";
     super(message, 500, ERROR_CODES.LOGIN_ERROR);
   }
 }
@@ -52,8 +52,8 @@ export class LoginError extends AppError {
 export class TokenRefreshError extends AppError {
   constructor(reason?: string) {
     const message = reason 
-      ? `Token refresh failed: ${reason}`
-      : "Failed to refresh token";
+      ? `Оновлення токена не вдалося: ${reason}`
+      : "Не вдалося оновити токен";
     super(message, 500, ERROR_CODES.TOKEN_REFRESH_ERROR);
   }
 }
@@ -61,8 +61,8 @@ export class TokenRefreshError extends AppError {
 export class LogoutError extends AppError {
   constructor(reason?: string) {
     const message = reason 
-      ? `Logout failed: ${reason}`
-      : "Logout process failed";
+      ? `Вихід не вдався: ${reason}`
+      : "Процес виходу не вдався";
     super(message, 500, ERROR_CODES.LOGOUT_ERROR);
   }
 }

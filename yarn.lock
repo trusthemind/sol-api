@@ -2280,6 +2280,23 @@ __metadata:
   languageName: node
   linkType: hard
 
+"openai@npm:^5.1.0":
+  version: 5.1.0
+  resolution: "openai@npm:5.1.0"
+  peerDependencies:
+    ws: ^8.18.0
+    zod: ^3.23.8
+  peerDependenciesMeta:
+    ws:
+      optional: true
+    zod:
+      optional: true
+  bin:
+    openai: bin/cli
+  checksum: 10c0/d5882c95f95bfc4127ccbe494d298f43fe56cd3a9fd5711d1f02a040cfa6cdcc1e706ffe05f3d428421ec4caa526fe1b5ff50e1849dbfb3016d289853262ea3d
+  languageName: node
+  linkType: hard
+
 "p-map@npm:^7.0.2":
   version: 7.0.3
   resolution: "p-map@npm:7.0.3"
@@ -2777,6 +2794,7 @@ __metadata:
     helmet: "npm:^8.1.0"
     jsonwebtoken: "npm:^9.0.2"
     mongoose: "npm:^8.13.2"
+    openai: "npm:^5.1.0"
     ts-node-dev: "npm:^2.0.0"
     tsc-alias: "npm:^1.8.16"
     tsconfig-paths: "npm:^4.2.0"

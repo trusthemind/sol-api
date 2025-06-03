@@ -2,6 +2,7 @@ export * from "./base";
 export * from "./codes";
 export * from "./auth";
 export * from "./user";
+export * from "./emotion";
 export * from "./system";
 export * from "./database";
 
@@ -11,30 +12,31 @@ import { AppError } from "./base";
 const ERROR_MAPPINGS = new Map([
   [
     "ValidationError",
-    { message: "Validation failed", status: 400, code: 3001 },
+    { message: "Помилка валідації", status: 400, code: 3001 },
   ],
-  ["CastError", { message: "Invalid ID format", status: 400, code: 3002 }],
-  ["JsonWebTokenError", { message: "Invalid token", status: 401, code: 1004 }],
-  ["TokenExpiredError", { message: "Token expired", status: 401, code: 1005 }],
+  ["CastError", { message: "Неправильний формат ID", status: 400, code: 3002 }],
+  [
+    "JsonWebTokenError",
+    { message: "Недійсний токен", status: 401, code: 1004 },
+  ],
+  [
+    "TokenExpiredError",
+    { message: "Термін дії токена минув", status: 401, code: 1005 },
+  ],
   [
     "MongoNetworkError",
-    { message: "Database connection error", status: 503, code: 4001 },
+    { message: "Помилка підключення до бази даних", status: 503, code: 4001 },
   ],
 ]);
 
 const SPECIAL_ERROR_HANDLERS = {
   handleDuplicateKeyError: (error: any): AppError => {
     const field = Object.keys(error.keyValue || {})[0];
-    return new AppError(`Duplicate ${field || "key"} error`, 409, 4004);
+    return new AppError(`Помилка дубльованого ${field || "ключа"}`, 409, 4004);
   },
 
   handleGenericError: (error: Error): AppError => {
-    return new AppError(
-      error.message || "Something went wrong",
-      500,
-      9001,
-      false
-    );
+    return new AppError(error.message || "Щось пішло не так", 500, 9001, false);
   },
 };
 
@@ -63,7 +65,6 @@ const createErrorResponse = (appError: AppError) => {
 };
 
 export const errorHandler = (
-  
   error: Error | AppError,
   req: Request,
   res: Response,
