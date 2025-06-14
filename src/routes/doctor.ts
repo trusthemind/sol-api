@@ -1,26 +1,27 @@
 import { DoctorController } from "@/controllers/doctor/doctor.controller";
+import { asyncHandler } from "@/errors";
 import { Router } from "express";
 
 const doctorRouter = Router();
 const doctorController = new DoctorController();
 
-doctorRouter.post("/", doctorController.createDoctor);
-doctorRouter.get("/", doctorController.getAllDoctors);
-doctorRouter.get("/search", doctorController.searchDoctors);
+doctorRouter.post("/", asyncHandler(doctorController.createDoctor));
+doctorRouter.get("/", asyncHandler(doctorController.getAllDoctors));
+doctorRouter.get("/search", asyncHandler(doctorController.searchDoctors));
 doctorRouter.get(
   "/specialization/:specialization",
   doctorController.getDoctorsBySpecialization
 );
-doctorRouter.get("/:id", doctorController.getDoctorById);
-doctorRouter.put("/:id", doctorController.updateDoctor);
-doctorRouter.delete("/:id", doctorController.deleteDoctor);
+doctorRouter.get("/:id", asyncHandler(doctorController.getDoctorById));
+doctorRouter.put("/:id", asyncHandler(doctorController.updateDoctor));
+doctorRouter.delete("/:id", asyncHandler(doctorController.deleteDoctor));
 doctorRouter.post(
   "/:doctorId/patients/:patientId",
-  doctorController.addPatientToDoctor
+  asyncHandler(doctorController.addPatientToDoctor)
 );
 doctorRouter.delete(
   "/:doctorId/patients/:patientId",
-  doctorController.removePatientFromDoctor
+  asyncHandler(doctorController.removePatientFromDoctor)
 );
 
 export { doctorRouter };

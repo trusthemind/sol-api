@@ -8,10 +8,7 @@ class Server {
 
   private async connectToDatabase() {
     try {
-      await mongoose.connect(config.MONGODB_URL, {
-        useNewUrlParser: true,
-        useUnifiedTopology: true,
-      } as mongoose.ConnectOptions);
+      await mongoose.connect(config.MONGODB_URL, {} as mongoose.ConnectOptions);
       this.logger.info("✅ Connected to MongoDB");
     } catch (err) {
       this.logger.error("❌ Failed to connect to MongoDB", err);

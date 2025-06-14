@@ -14,9 +14,11 @@ import {
   InternalServerError,
   asyncHandler,
 } from "@/errors";
+import { AvatarService } from "@/services/avatar.service";
 
 export class UserController {
   private readonly logger = new Logger(UserController.name);
+  private readonly avatarService = new AvatarService();
   private readonly userRepository: UserRepository;
 
   constructor() {
@@ -280,6 +282,93 @@ export class UserController {
         this.logger.error("Delete user error:", error);
         throw new UserDeletionFailedError(
           error instanceof Error ? error.message : undefined
+        );
+      }
+    }
+  );
+
+  public uploadAvatar = asyncHandler(
+    async (req: Request, res: Response, next: NextFunction) => {
+      const userId = req.user?.id;
+      if (!userId) {
+        throw new UnauthorizedError("User ID not found in request");
+      }
+
+      const file = (req as any).files?.file || req.file;
+      if (!file) {
+        return res.status(400).json({
+          message: "No avatar file provided",
+        });
+      }
+
+      try {
+        const avatarUrl = await this.avatarService.uploadAvatar(
+          Array.isArray(file) ? file[0] : file,
+          userId
+        );
+
+        const updatedUser = await this.userRepository.updateUser(userId, {
+          avatar: avatarUrl,
+        });
+
+        if (!updatedUser) throw new UserNotFoundError(`ID: ${userId}`);
+
+        this.logger.info(`Avatar uploaded for user: ${userId}`);
+
+        return res.status(200).json({
+          message: "Avatar uploaded successfully",
+          avatar: avatarUrl,
+          user: {
+            id: updatedUser._id,
+            email: updatedUser.email,
+            firstName: updatedUser.firstName,
+            lastName: updatedUser.lastName,
+            role: updatedUser.role,
+            avatar: updatedUser.avatar,
+          },
+        });
+      } catch (error) {
+        this.logger.error("Avatar upload error:", error);
+        throw new ProfileUpdateFailedError(
+          error instanceof Error ? error.message : "Avatar upload failed"
+        );
+      }
+    }
+  );
+
+  public deleteAvatar = asyncHandler(
+    async (req: Request, res: Response, next: NextFunction) => {
+      const userId = req.user?.id;
+      if (!userId) throw new UnauthorizedError("User ID not found in request");
+
+      try {
+        await this.avatarService.deleteAvatar(userId);
+
+        const updatedUser = await this.userRepository.updateUser(userId, {
+          avatar: undefined,
+        });
+
+        if (!updatedUser) {
+          throw new UserNotFoundError(`ID: ${userId}`);
+        }
+
+        this.logger.info(`Avatar deleted for user: ${userId}`);
+
+        return res.status(200).json({
+          message: "Avatar deleted successfully",
+          user: {
+            id: updatedUser._id,
+            email: updatedUser.email,
+            firstName: updatedUser.firstName,
+            lastName: updatedUser.lastName,
+            role: updatedUser.role,
+            avatar: updatedUser.avatar,
+          },
+        });
+      } catch (error) {
+        this.logger.error("Avatar deletion error:", error);
+        throw new ProfileUpdateFailedError(
+          error instanceof Error ? error.message : "Avatar deletion failed"
         );
       }
     }
