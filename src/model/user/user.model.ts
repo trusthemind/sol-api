@@ -1,4 +1,4 @@
-import mongoose, { Document } from "mongoose";
+import mongoose, { Document, Schema } from "mongoose";
 
 export enum UserRole {
   PATIENT = "patient",
@@ -11,39 +11,38 @@ export interface IUser extends Document {
   avatar?: string;
   firstName?: string;
   lastName?: string;
+  phoneNumber?: string;
+  bio?: string;
   role: UserRole;
-  healthId?: string;
+  healthId?: mongoose.Types.ObjectId;
   doctorId?: mongoose.Types.ObjectId;
+  createdAt?: string;
 }
 
-const userSchema = new mongoose.Schema<IUser>(
+const userSchema = new Schema<IUser>(
   {
     email: { type: String, required: true, unique: true },
     password: { type: String, required: true },
-    avatar: { type: String, required: false },
-    firstName: { type: String, required: false },
-    lastName: { type: String, required: false },
-    healthId: { type: mongoose.Types.ObjectId, required: false },
-    doctorId: [
-      {
-        type: mongoose.Types.ObjectId,
-        ref: "Doctor",
-        required: false,
-        default: [],
-      },
-    ],
+    avatar: { type: String },
+    firstName: { type: String },
+    lastName: { type: String },
+    phoneNumber: { type: String },
+    bio: { type: String },
+    healthId: { type: mongoose.Types.ObjectId, ref: "HealthRecord" },
+    doctorId: { type: mongoose.Types.ObjectId, ref: "Doctor" },
     role: {
       type: String,
       enum: Object.values(UserRole),
-      required: true,
       default: UserRole.PATIENT,
     },
   },
   {
+    timestamps: true,
     toJSON: {
-      transform: function (d, v) {
-        delete v.__v;
-        return v;
+      transform: (_doc, ret) => {
+        delete ret.__v;
+        delete ret.password; // optional: hide password in JSON
+        return ret;
       },
     },
   }

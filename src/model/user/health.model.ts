@@ -1,106 +1,81 @@
-import mongoose, { Document } from "mongoose";
+import mongoose, { Document, Schema } from "mongoose";
 
-enum Gender {
-  MALE = "male",
-  FEMALE = "female",
-  OTHER = "other",
+export enum UserRole {
+  PATIENT = "patient",
+  DOCTOR = "doctor",
 }
 
-enum BloodType {
-  A_POSITIVE = "A+",
-  A_NEGATIVE = "A-",
-  B_POSITIVE = "B+",
-  B_NEGATIVE = "B-",
-  AB_POSITIVE = "AB+",
-  AB_NEGATIVE = "AB-",
-  O_POSITIVE = "O+",
-  O_NEGATIVE = "O-",
-  UNKNOWN = "unknown",
+export interface IUser extends Document {
+  email: string;
+  password: string;
+  avatar?: string;
+  firstName?: string;
+  lastName?: string;
+  phoneNumber?: string;
+  bio?: string;
+  role: UserRole;
+  healthId?: mongoose.Types.ObjectId;
+  doctorId?: mongoose.Types.ObjectId[];
 }
 
-enum ActivityLevel {
-  SEDENTARY = "sedentary",
-  LIGHTLY_ACTIVE = "lightly_active",
-  MODERATELY_ACTIVE = "moderately_active",
-  VERY_ACTIVE = "very_active",
-  EXTREMELY_ACTIVE = "extremely_active",
-}
-
-enum SleepQuality {
-  POOR = "poor",
-  FAIR = "fair",
-  GOOD = "good",
-  EXCELLENT = "excellent",
-}
-
-export interface IHealth extends Document {
-  userId: mongoose.Types.ObjectId;
-  age: number;
-  gender: Gender;
-  bloodType: BloodType;
-  activityLevel: ActivityLevel;
-  sleepQuality: SleepQuality;
-  smokingStatus: "never" | "former" | "current";
-  alcoholConsumption: "none" | "occasional" | "moderate" | "heavy";
-}
-
-const healthSchema = new mongoose.Schema<IHealth>(
+const userSchema = new Schema<IUser>(
   {
-    userId: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: "User",
+    email: {
+      type: String,
       required: true,
       unique: true,
+      lowercase: true,
+      trim: true,
     },
-    age: {
-      type: Number,
-      required: false,
-      min: 0,
-      max: 150,
-    },
-    gender: {
+    password: {
       type: String,
-      enum: Object.values(Gender),
-      required: false,
+      required: true,
     },
-    bloodType: {
+    avatar: {
       type: String,
-      enum: Object.values(BloodType),
-      required: false,
-      default: BloodType.UNKNOWN,
     },
-    activityLevel: {
+    firstName: {
       type: String,
-      enum: Object.values(ActivityLevel),
-      required: false,
+      trim: true,
     },
-    sleepQuality: {
+    lastName: {
       type: String,
-      enum: Object.values(SleepQuality),
-      required: false,
+      trim: true,
     },
-    smokingStatus: {
+    phoneNumber: {
       type: String,
-      enum: ["never", "former", "current"],
-      required: false,
     },
-    alcoholConsumption: {
+    bio: {
       type: String,
-      enum: ["none", "occasional", "moderate", "heavy"],
-      required: false,
+    },
+    healthId: {
+      type: Schema.Types.ObjectId,
+      ref: "Health",
+    },
+    doctorId: [
+      {
+        type: Schema.Types.ObjectId,
+        ref: "Doctor",
+        default: [],
+      },
+    ],
+    role: {
+      type: String,
+      enum: Object.values(UserRole),
+      default: UserRole.PATIENT,
+      required: true,
     },
   },
   {
     timestamps: true,
     toJSON: {
-      transform: function (doc, ret) {
+      transform: (_doc, ret) => {
         delete ret.__v;
+        delete ret.password;
         return ret;
       },
     },
   }
 );
 
-healthSchema.index({ userId: 1 });
-
-export const Health = mongoose.model<IHealth>("Health", healthSchema);
+export const User = mongoose.model<IUser>("User", userSchema);

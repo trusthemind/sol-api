@@ -29,12 +29,12 @@ export class AuthController {
 
       const hashedPassword = await hashPassword(password);
 
-      const userData = {
+      const newUserData = {
         email: email?.toLowerCase(),
         password: hashedPassword,
       };
 
-      const user = await this.userRepository.createUser(userData);
+      const user = await this.userRepository.createUser(newUserData);
 
       const token = generateToken({
         id: user._id,
@@ -44,16 +44,17 @@ export class AuthController {
 
       this.logger.info(`User registered successfully: ${user._id} (${email})`);
 
+      const responseUserData = {
+        id: user._id,
+        email: user.email,
+        avatar: user.avatar,
+        firstName: user.firstName,
+        lastName: user.lastName,
+      };
+
       return res.status(201).json({
         token,
-        user: {
-          id: user._id,
-          email: user.email,
-          firstName: user.firstName,
-          lastName: user.lastName,
-          role: user.role,
-          avatar: user.avatar,
-        },
+        user: responseUserData,
       });
     }
   );
@@ -63,6 +64,7 @@ export class AuthController {
       const { email, password } = req.body;
 
       const user = await this.userRepository.findByEmail(email?.toLowerCase());
+
       if (!user) throw new InvalidCredentialsError();
 
       const isValidPassword = await comparePasswords(password, user.password);
@@ -77,12 +79,16 @@ export class AuthController {
 
       this.logger.info(`User logged in successfully: ${email}`);
 
+      const responseUserData = {
+        id: user._id,
+        email: user.email,
+        avatar: user.avatar,
+        firstName: user.firstName,
+        lastName: user.lastName,
+      };
       return res.status(200).json({
         token,
-        user: {
-          id: user._id,
-          email: user.email,
-        },
+        user: responseUserData,
       });
     }
   );

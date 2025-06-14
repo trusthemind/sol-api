@@ -37,15 +37,16 @@ export class UserController {
       }
 
       return res.status(200).json({
-        message: "Profile retrieved successfully",
         user: {
           id: user._id,
           email: user.email,
           firstName: user.firstName,
           lastName: user.lastName,
+          phone: user.phoneNumber,
           role: user.role,
           avatar: user.avatar,
           healthId: user.healthId,
+          sinceForm: user.createdAt,
         },
       });
     }
@@ -58,13 +59,23 @@ export class UserController {
         throw new UnauthorizedError("User ID not found in request");
       }
 
-      const { firstName, lastName, avatar } = req.body;
+      const { firstName, lastName, email, avatar, phone } = req.body;
 
       try {
-        const updateData: any = {};
-        if (firstName !== undefined) updateData.firstName = firstName?.trim();
-        if (lastName !== undefined) updateData.lastName = lastName?.trim();
-        if (avatar !== undefined) updateData.avatar = avatar;
+        const updateData:
+          | {
+              firstName: string;
+              lastName: string;
+              avatar: string;
+              phoneNumber: string;
+              email: string;
+            }
+          | any = {};
+        if (email) updateData.email = email;
+        if (firstName) updateData.firstName = firstName?.trim();
+        if (lastName) updateData.lastName = lastName?.trim();
+        if (avatar) updateData.avatar = avatar;
+        if (phone) updateData.phoneNumber = phone;
 
         const updatedUser = await this.userRepository.updateUser(
           userId,
@@ -83,6 +94,7 @@ export class UserController {
             email: updatedUser.email,
             firstName: updatedUser.firstName,
             lastName: updatedUser.lastName,
+            phone: updatedUser.phoneNumber,
             role: updatedUser.role,
             avatar: updatedUser.avatar,
           },
