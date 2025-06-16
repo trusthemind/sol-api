@@ -79,8 +79,8 @@ export class OpenAIService {
   }
 
   async generateRecommendations(
-    emotions: IEmotionEntry[],
-    stats: EmotionStats
+    emotions: IEmotionEntry[] | Partial<IEmotionEntry>,
+    stats?: EmotionStats
   ): Promise<RecommendationResult> {
     try {
       if (!this.openai) {
@@ -221,9 +221,29 @@ export class OpenAIService {
   }
 
   private buildRecommendationPrompt(
-    emotions: IEmotionEntry[],
-    stats: EmotionStats
+    emotions: IEmotionEntry[] | Partial<IEmotionEntry>,
+    stats?: EmotionStats
   ): string {
+    if (!stats) {
+      // Generate basic recommendations based on emotions only
+      const emotionsList = Array.isArray(emotions) ? emotions : [emotions];
+      return `
+      На основі цих емоційних даних надай персоналізовані рекомендації українською мовою:
+
+      Емоційні записи: ${JSON.stringify(emotionsList.slice(0, 5), null, 2)}
+
+      Надай JSON відповідь українською мовою з такими полями:
+      - immediate: Масив негайних дій на сьогодні
+      - shortTerm: Масив дій на наступний тиждень
+      - longTerm: Масив довгострокових стратегій
+      - professionalHelp: Boolean чи рекомендована професійна допомога
+      - resources: Масив корисних ресурсів або технік
+      - coping: Масив стратегій подолання
+
+      Примітка: Рівні інтенсивності VERY_LOW, LOW, MODERATE, HIGH, VERY_HIGH (рядки).
+      `;
+    }
+
     return `
     На основі цих емоційних даних надай персоналізовані рекомендації українською мовою:
 
@@ -421,8 +441,8 @@ export class OpenAIService {
   }
 
   private generateBasicRecommendations(
-    emotions: IEmotionEntry[],
-    stats: EmotionStats
+    emotions: IEmotionEntry[] | Partial<IEmotionEntry>,
+    stats?: EmotionStats
   ): RecommendationResult {
     const immediate: string[] = [];
     const shortTerm: string[] = [];
@@ -431,6 +451,49 @@ export class OpenAIService {
     const coping: string[] = [];
     let professionalHelp = false;
 
+    // If no stats provided, generate basic recommendations based on emotions
+    if (!stats) {
+      const emotionsList = Array.isArray(emotions) ? emotions : [emotions];
+
+      // Analyze individual emotions if available
+      emotionsList.forEach((emotion) => {
+        if (emotion.emotion === EmotionType.ANXIOUS) {
+          immediate.push("Практикуйте глибоке дихання");
+          coping.push("Техніки заземлення 5-4-3-2-1");
+        }
+        if (emotion.emotion === EmotionType.SAD) {
+          immediate.push("Зв'яжіться з близькими людьми");
+          shortTerm.push("Займіться улюбленими справами");
+        }
+        if (emotion.emotion === EmotionType.OVERWHELMED) {
+          immediate.push("Розбийте завдання на менші частини");
+          coping.push("Техніки управління часом");
+        }
+        if (emotion.stressLevel && emotion.stressLevel > 7) {
+          immediate.push("Зробіть перерву та відпочиньте");
+          professionalHelp = true;
+        }
+      });
+
+      if (immediate.length === 0)
+        immediate.push("Практикуйте усвідомлене дихання");
+
+      if (shortTerm.length === 0) shortTerm.push("Ведіть щоденник емоцій");
+
+      longTerm.push("Розвивайте навички емоційної регуляції");
+      resources.push("Додатки для медитації та релаксації");
+
+      return {
+        immediate,
+        shortTerm,
+        longTerm,
+        professionalHelp,
+        resources,
+        coping,
+      };
+    }
+
+    // Rest of the existing logic when stats is provided
     // Рекомендації на основі стресу
     if (stats.averageStressLevel > 7) {
       immediate.push("Практикуйте глибоке дихання");

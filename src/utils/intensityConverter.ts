@@ -7,11 +7,7 @@ export enum IntensityLevel {
 }
 
 export class IntensityConverter {
-  /**
-   * Convert any input to valid IntensityLevel enum
-   */
   static toDatabase(input: any): IntensityLevel | null {
-    // Handle number input first
     if (typeof input === 'number') {
       const numberToEnum: Record<number, IntensityLevel> = {
         1: IntensityLevel.VERY_LOW,
@@ -51,7 +47,6 @@ export class IntensityConverter {
   }
 
   /**
-   * Get human-readable description for intensity level
    */
   static getDescription(level: IntensityLevel | string): string {
     const descriptions: Record<IntensityLevel, string> = {

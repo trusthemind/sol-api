@@ -25,6 +25,10 @@ emotionRouter.get(
   "/user/:userId/recommendations",
   emotionController.getRecommendations
 );
+emotionRouter.post(
+  "/recommendations",
+  emotionController.generateInstantRecommendation
+);
 emotionRouter.get("/user/:userId/summary", emotionController.getOverallSummary);
 
 emotionRouter.get("/:id", emotionController.getEmotionById);

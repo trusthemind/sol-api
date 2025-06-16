@@ -3,10 +3,6 @@ import {
   EmotionRepository,
 } from "@/repositories/emotional.repository";
 import { OpenAIService } from "@/services/openai.service";
-import {
-  IntensityConverter,
-  IntensityDatabaseHelper,
-} from "@/utils/intensityConverter";
 import { Request, Response } from "express";
 import { asyncHandler } from "@/errors";
 import {
@@ -26,10 +22,22 @@ import {
   OpenAIServiceError,
   IntensityConversionError,
 } from "@/errors";
+import {
+  IntensityConverter,
+  IntensityDatabaseHelper,
+  IntensityLevel,
+} from "@/utils/intensityConverter";
+import {
+  EmotionEntry,
+  EmotionType,
+  IEmotionEntry,
+} from "@/model/user/emotional.model";
+import Logger from "@/utils/logger";
 
 export class EmotionController {
   private emotionRepository: EmotionRepository;
   private openAIService: OpenAIService;
+  private readonly logger = new Logger(EmotionController.name);
 
   constructor() {
     this.emotionRepository = new EmotionRepository();
@@ -45,33 +53,33 @@ export class EmotionController {
       );
     }
 
-    let preparedIntensity;
+    let preparedData;
     try {
-      preparedIntensity = IntensityDatabaseHelper.prepareForSave(
-        emotionData.intensity
+      const convertedEmotion = EmotionEntry.convertEmotionToEnglish(
+        emotionData.emotion
       );
-    } catch (error) {
-      throw new IntensityConversionError(emotionData.intensity);
+
+      const convertedIntensity = EmotionEntry.convertIntensityToEnum(
+        emotionData.intensity || 5
+      );
+
+      preparedData = {
+        ...emotionData,
+        emotion: convertedEmotion,
+        intensity: convertedIntensity,
+      };
+    } catch (error: any) {
+      throw new IntensityConversionError(error.message);
     }
 
     let emotion;
     try {
-      emotion = await this.emotionRepository.create({
-        ...emotionData,
-        intensity: preparedIntensity,
-      });
+      emotion = await this.emotionRepository.create(preparedData);
     } catch (error: any) {
       throw new EmotionCreationFailedError(error.message);
     }
 
-    let enrichedEmotion;
-    try {
-      enrichedEmotion = IntensityDatabaseHelper.enrichResponse(
-        emotion.toObject ? emotion.toObject() : emotion
-      );
-    } catch (error) {
-      throw new EmotionEnrichmentFailedError("Не вдалося збагатити відповідь");
-    }
+    const enrichedEmotion = emotion.toObject ? emotion.toObject() : emotion;
 
     res.status(201).json({
       success: true,
@@ -178,6 +186,36 @@ export class EmotionController {
 
     if (!updateData || Object.keys(updateData).length === 0) {
       throw new InvalidEmotionDataError("Дані для оновлення не надано");
+    }
+
+    // Handle intensity conversion for updates if intensity is provided
+    if (updateData.intensity !== undefined) {
+      try {
+        let intensityValue = updateData.intensity;
+
+        // If intensity is a string number, convert to number
+        if (
+          typeof intensityValue === "string" &&
+          !isNaN(Number(intensityValue))
+        ) {
+          intensityValue = Number(intensityValue);
+        }
+
+        // If intensity is not a valid number, throw error
+        if (
+          typeof intensityValue !== "number" ||
+          intensityValue < 1 ||
+          intensityValue > 10
+        ) {
+          throw new Error(
+            `Invalid intensity value: ${updateData.intensity}. Must be a number between 1 and 10.`
+          );
+        }
+
+        updateData.intensity = IntensityConverter.toDatabase(intensityValue);
+      } catch (error: any) {
+        throw new IntensityConversionError(updateData.intensity);
+      }
     }
 
     let emotion;
@@ -392,6 +430,59 @@ export class EmotionController {
       },
     });
   });
+
+  generateInstantRecommendation = asyncHandler(
+    async (req: Request, res: Response) => {
+      const {
+        emotion,
+        intensity,
+        triggers = [],
+        notes = "",
+        tags = [],
+      } = req.body;
+
+      if (!emotion || !intensity) {
+        return res.status(400).json({
+          success: false,
+          message: "Missing required fields: emotion, intensity",
+        });
+      }
+
+      const fakeEntry: Partial<IEmotionEntry> = {
+        emotion: emotion as EmotionType,
+        intensity: IntensityConverter.toDatabase(intensity) ?? undefined,
+        description: notes,
+        triggers,
+        tags,
+      };
+
+      let recommendation;
+
+      try {
+        recommendation = await new OpenAIService().generateRecommendations(
+          fakeEntry
+        );
+      } catch (error: any) {
+        this.logger.error(error.message ?? error);
+        throw new OpenAIServiceError(
+          "Генерація миттєвих рекомендацій",
+          error.message
+        );
+      }
+
+      return res.status(200).json({
+        success: true,
+        data: {
+          recommendations: recommendation,
+          basedOn: {
+            emotion,
+            intensity,
+            triggers,
+          },
+        },
+      });
+    }
+  );
 
   getOverallSummary = asyncHandler(async (req: Request, res: Response) => {
     const { userId } = req.params;
