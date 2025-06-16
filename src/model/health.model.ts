@@ -15,7 +15,6 @@ export interface IUser extends Document {
   bio?: string;
   role: UserRole;
   healthId?: mongoose.Types.ObjectId;
-  doctorId?: mongoose.Types.ObjectId[];
 }
 
 const userSchema = new Schema<IUser>(
@@ -52,13 +51,6 @@ const userSchema = new Schema<IUser>(
       type: Schema.Types.ObjectId,
       ref: "Health",
     },
-    doctorId: [
-      {
-        type: Schema.Types.ObjectId,
-        ref: "Doctor",
-        default: [],
-      },
-    ],
     role: {
       type: String,
       enum: Object.values(UserRole),

@@ -2,7 +2,7 @@ import { Request, Response, NextFunction } from "express";
 import jwt from "jsonwebtoken";
 import { UserRepository } from "@/repositories/user.repository";
 import Logger from "@/utils/logger";
-import { UserRole } from "@/model/user/user.model";
+import { UserRole } from "@/model/user.model";
 import { config } from "@/config/env";
 
 declare global {

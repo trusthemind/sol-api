@@ -1,4 +1,4 @@
-import { Doctor, IDoctor, Specialization } from "@/model/user/doctor.model";
+import { Doctor, IDoctor, Specialization } from "@/model/doctor.model";
 
 export class DoctorRepository {
   async create(doctorData: any): Promise<IDoctor> {

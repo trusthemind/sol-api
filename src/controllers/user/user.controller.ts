@@ -2,7 +2,7 @@ import { Request, Response, NextFunction } from "express";
 import { hashPassword, comparePasswords } from "@/utils/hash";
 import Logger from "@/utils/logger";
 import { UserRepository } from "@/repositories/user.repository";
-import { UserRole } from "@/model/user/user.model";
+import { UserRole } from "@/model/user.model";
 import {
   UserNotFoundError,
   InvalidCurrentPasswordError,

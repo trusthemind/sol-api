@@ -2,15 +2,16 @@ import {
   EmotionEntry,
   EmotionType,
   IEmotionEntry,
-  IntensityLevel,
-} from "@/model/user/emotional.model";
+} from "@/model/emotional.model";
 import mongoose from "mongoose";
+import { EmotionUtils } from "@/utils/emotionConverter";
 
 export interface EmotionFilters {
   userId?: string;
-  doctorId?: string;
   emotion?: EmotionType | EmotionType[];
-  intensity?: IntensityLevel;
+  intensity?: number;
+  minIntensity?: number;
+  maxIntensity?: number;
   stressLevel?: number;
   minStressLevel?: number;
   maxStressLevel?: number;
@@ -19,20 +20,20 @@ export interface EmotionFilters {
   timeRange?: "today" | "week" | "month" | "quarter" | "year";
   tags?: string[];
   triggers?: string[];
-  isPrivate?: boolean;
   limit?: number;
   skip?: number;
-  sortBy?: "recordedAt" | "intensity" | "stressLevel" | "emotion";
+  sortBy?: "createdAt" | "intensity" | "stressLevel" | "emotion";
   sortOrder?: "asc" | "desc";
 }
 
 export interface EmotionStats {
   totalEntries: number;
   averageStressLevel: number;
+  averageIntensity: number;
   mostCommonEmotion: EmotionType;
-  mostCommonIntensity: IntensityLevel;
+  mostCommonIntensity: number;
   emotionDistribution: Record<EmotionType, number>;
-  intensityDistribution: Record<IntensityLevel, number>;
+  intensityDistribution: Record<number, number>;
   trendsOverTime: any[];
 }
 
@@ -40,7 +41,6 @@ export class EmotionRepository {
   async create(emotionData: Partial<IEmotionEntry>): Promise<IEmotionEntry> {
     const emotion = new EmotionEntry({
       ...emotionData,
-      recordedAt: emotionData.recordedAt || new Date(),
     });
     return await emotion.save();
   }
@@ -50,7 +50,7 @@ export class EmotionRepository {
     const {
       limit = 50,
       skip = 0,
-      sortBy = "recordedAt",
+      sortBy = "createdAt",
       sortOrder = "desc",
     } = filters;
 
@@ -59,16 +59,16 @@ export class EmotionRepository {
 
     return await EmotionEntry.find(query)
       .populate("userId", "firstName lastName email")
-      .populate("doctorId", "firstName lastName")
       .limit(limit)
       .skip(skip)
       .sort(sortObj);
   }
 
   async findById(id: string): Promise<IEmotionEntry | null> {
-    return await EmotionEntry.findById(id)
-      .populate("userId", "firstName lastName email")
-      .populate("doctorId", "firstName lastName");
+    return await EmotionEntry.findById(id).populate(
+      "userId",
+      "firstName lastName email"
+    );
   }
 
   async update(
@@ -112,8 +112,8 @@ export class EmotionRepository {
 
     return await EmotionEntry.find({
       userId,
-      recordedAt: { $gte: startDate, $lte: now },
-    }).sort({ recordedAt: -1 });
+      createdAt: { $gte: startDate, $lte: now },
+    }).sort({ createdAt: -1 });
   }
 
   async findByEmotionType(
@@ -123,17 +123,17 @@ export class EmotionRepository {
     return await EmotionEntry.find({
       userId,
       emotion: { $in: emotions },
-    }).sort({ recordedAt: -1 });
+    }).sort({ createdAt: -1 });
   }
 
   async findByIntensity(
     userId: string,
-    intensity: IntensityLevel
+    intensity: number
   ): Promise<IEmotionEntry[]> {
     return await EmotionEntry.find({
       userId,
-      intensity
-    }).sort({ recordedAt: -1 });
+      intensity,
+    }).sort({ createdAt: -1 });
   }
 
   async getEmotionStats(
@@ -145,11 +145,13 @@ export class EmotionRepository {
     const [
       totalEntries,
       avgStressLevel,
+      avgIntensity,
       emotionDistribution,
       intensityDistribution,
     ] = await Promise.all([
       EmotionEntry.countDocuments(query),
       this.getAverageStressLevel(query),
+      this.getAverageIntensity(query),
       this.getEmotionDistribution(query),
       this.getIntensityDistribution(query),
     ]);
@@ -161,18 +163,18 @@ export class EmotionRepository {
         : b
     ) as EmotionType;
 
-    const mostCommonIntensity = Object.keys(intensityDistribution).reduce((a, b) =>
-      intensityDistribution[a as IntensityLevel] >
-      intensityDistribution[b as IntensityLevel]
-        ? a
-        : b
-    ) as IntensityLevel;
+    const intensityEntries = Object.entries(intensityDistribution);
+    const mostCommonIntensityEntry = intensityEntries.reduce((max, current) =>
+      current[1] > max[1] ? current : max
+    );
+    const mostCommonIntensity = Number(mostCommonIntensityEntry[0]);
 
     const trendsOverTime = await this.getTrendsOverTime(query);
 
     return {
       totalEntries,
       averageStressLevel: avgStressLevel,
+      averageIntensity: avgIntensity,
       mostCommonEmotion,
       mostCommonIntensity,
       emotionDistribution,
@@ -188,7 +190,7 @@ export class EmotionRepository {
       {
         $match: {
           userId: new mongoose.Types.ObjectId(userId),
-          recordedAt: { $gte: startDate },
+          createdAt: { $gte: startDate },
         },
       },
       {
@@ -196,11 +198,12 @@ export class EmotionRepository {
           _id: {
             emotion: "$emotion",
             intensity: "$intensity",
-            hour: { $hour: "$recordedAt" },
-            dayOfWeek: { $dayOfWeek: "$recordedAt" },
+            hour: { $hour: "$createdAt" },
+            dayOfWeek: { $dayOfWeek: "$createdAt" },
           },
           count: { $sum: 1 },
           avgStressLevel: { $avg: "$stressLevel" },
+          avgIntensity: { $avg: "$intensity" },
         },
       },
       {
@@ -212,15 +215,15 @@ export class EmotionRepository {
   async findSimilarEmotions(
     userId: string,
     emotion: EmotionType,
-    intensity: IntensityLevel
+    intensity: number
   ): Promise<IEmotionEntry[]> {
     return await EmotionEntry.find({
       userId,
       emotion,
-      intensity
+      intensity: { $gte: intensity - 1, $lte: intensity + 1 },
     })
       .limit(10)
-      .sort({ recordedAt: -1 });
+      .sort({ createdAt: -1 });
   }
 
   async count(filters: EmotionFilters = {}): Promise<number> {
@@ -232,8 +235,6 @@ export class EmotionRepository {
     const query: any = {};
 
     if (filters.userId) query.userId = filters.userId;
-    if (filters.doctorId) query.doctorId = filters.doctorId;
-    if (filters.isPrivate !== undefined) query.isPrivate = filters.isPrivate;
 
     if (filters.emotion) {
       if (Array.isArray(filters.emotion)) {
@@ -243,8 +244,12 @@ export class EmotionRepository {
       }
     }
 
-    if (filters.intensity) {
-      query.intensity = filters.intensity;
+    if (filters.intensity) query.intensity = filters.intensity;
+
+    if (filters.minIntensity || filters.maxIntensity) {
+      query.intensity = {};
+      if (filters.minIntensity) query.intensity.$gte = filters.minIntensity;
+      if (filters.maxIntensity) query.intensity.$lte = filters.maxIntensity;
     }
 
     if (filters.minStressLevel || filters.maxStressLevel) {
@@ -256,14 +261,14 @@ export class EmotionRepository {
     }
 
     if (filters.startDate || filters.endDate) {
-      query.recordedAt = {};
-      if (filters.startDate) query.recordedAt.$gte = filters.startDate;
-      if (filters.endDate) query.recordedAt.$lte = filters.endDate;
+      query.createdAt = {};
+      if (filters.startDate) query.createdAt.$gte = filters.startDate;
+      if (filters.endDate) query.createdAt.$lte = filters.endDate;
     }
 
     if (filters.timeRange) {
       const timeQuery = this.getTimeRangeQuery(filters.timeRange);
-      query.recordedAt = timeQuery;
+      query.createdAt = timeQuery;
     }
 
     if (filters.tags && filters.tags.length > 0) {
@@ -313,6 +318,14 @@ export class EmotionRepository {
     return result[0]?.avg || 0;
   }
 
+  private async getAverageIntensity(query: any): Promise<number> {
+    const result = await EmotionEntry.aggregate([
+      { $match: query },
+      { $group: { _id: null, avg: { $avg: "$intensity" } } },
+    ]);
+    return result[0]?.avg || 0;
+  }
+
   private async getEmotionDistribution(
     query: any
   ): Promise<Record<EmotionType, number>> {
@@ -335,22 +348,21 @@ export class EmotionRepository {
 
   private async getIntensityDistribution(
     query: any
-  ): Promise<Record<IntensityLevel, number>> {
+  ): Promise<Record<number, number>> {
     const result = await EmotionEntry.aggregate([
       { $match: query },
       { $group: { _id: "$intensity", count: { $sum: 1 } } },
     ]);
 
-    const distribution: Record<IntensityLevel, number> = {} as any;
-    
-    // Initialize all intensity levels to 0
-    Object.values(IntensityLevel).forEach((level) => {
-      distribution[level] = 0;
-    });
+    const distribution: Record<number, number> = {};
+
+    for (let i = 1; i <= 10; i++) {
+      distribution[i] = 0;
+    }
 
     result.forEach((item) => {
-      if (Object.values(IntensityLevel).includes(item._id)) {
-        distribution[item._id as IntensityLevel] = item.count;
+      if (item._id >= 1 && item._id <= 10) {
+        distribution[item._id] = item.count;
       }
     });
 
@@ -363,13 +375,14 @@ export class EmotionRepository {
       {
         $group: {
           _id: {
-            year: { $year: "$recordedAt" },
-            month: { $month: "$recordedAt" },
-            day: { $dayOfMonth: "$recordedAt" },
+            year: { $year: "$createdAt" },
+            month: { $month: "$createdAt" },
+            day: { $dayOfMonth: "$createdAt" },
           },
           emotions: { $push: "$emotion" },
           intensities: { $push: "$intensity" },
           avgStressLevel: { $avg: "$stressLevel" },
+          avgIntensity: { $avg: "$intensity" },
           count: { $sum: 1 },
         },
       },

@@ -1,4 +1,4 @@
-import { IUser, User } from "@/model/user/user.model";
+import { IUser, User } from "@/model/user.model";
 import Logger from "@/utils/logger";
 import {
   DatabaseQueryError,
