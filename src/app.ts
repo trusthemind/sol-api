@@ -11,16 +11,26 @@ import { errorHandler } from "./errors";
 
 const app = express();
 
+const allowedOrigins = [
+  "http://localhost:3000",
+  "https://sol-web-app-gamma.vercel.app",
+];
+
 app.use(
   cors({
-    origin: "http://localhost:3000",
+    origin: (origin, callback) => {
+      if (!origin || allowedOrigins.includes(origin)) callback(null, true);
+      else callback(new Error("Not allowed by CORS"));
+    },
     credentials: true,
   })
 );
+
 app.use(helmet());
 app.use(express.json());
 app.use(rateLimit({ windowMs: 15 * 60 * 1000, max: 100 }));
 
+// Ваші маршрути
 app.use("/api/health", (_, res) => {
   res.status(200).json({ status: "OK", message: "Service is healthy" });
 });
