@@ -2,7 +2,7 @@ import mongoose, { Document, Schema } from "mongoose";
 
 export enum UserRole {
   PATIENT = "patient",
-  DOCTOR = "doctor",
+  ADMIN = "admin",
 }
 
 export interface IUser extends Document {
@@ -15,7 +15,6 @@ export interface IUser extends Document {
   bio?: string;
   role: UserRole;
   healthId?: mongoose.Types.ObjectId;
-  doctorId?: mongoose.Types.ObjectId;
   createdAt?: string;
 }
 
@@ -29,7 +28,6 @@ const userSchema = new Schema<IUser>(
     phoneNumber: { type: String },
     bio: { type: String },
     healthId: { type: mongoose.Types.ObjectId, ref: "HealthRecord" },
-    doctorId: { type: mongoose.Types.ObjectId, ref: "Doctor" },
     role: {
       type: String,
       enum: Object.values(UserRole),

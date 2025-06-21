@@ -1,73 +1,71 @@
 import mongoose, { Document, Schema } from "mongoose";
 
-export enum UserRole {
-  PATIENT = "patient",
-  DOCTOR = "doctor",
+export interface IHealth extends Document {
+  userId: mongoose.Types.ObjectId;
+  height?: number; // cm
+  weight?: number; // kg
+  bmi?: number;
+  allergies?: string[];
 }
 
-export interface IUser extends Document {
-  email: string;
-  password: string;
-  avatar?: string;
-  firstName?: string;
-  lastName?: string;
-  phoneNumber?: string;
-  bio?: string;
-  role: UserRole;
-  healthId?: mongoose.Types.ObjectId;
-}
-
-const userSchema = new Schema<IUser>(
+const healthSchema = new Schema<IHealth>(
   {
-    email: {
-      type: String,
+    userId: {
+      type: Schema.Types.ObjectId,
+      ref: "User",
       required: true,
       unique: true,
-      lowercase: true,
+    },
+    height: {
+      type: Number,
+      min: 0,
+      max: 300,
+    },
+    weight: {
+      type: Number,
+      min: 0,
+      max: 1000,
+    },
+    bmi: {
+      type: Number,
+      min: 0,
+      max: 100,
+    },
+    allergies: [{
+      type: String,
       trim: true,
-    },
-    password: {
-      type: String,
-      required: true,
-    },
-    avatar: {
-      type: String,
-    },
-    firstName: {
-      type: String,
-      trim: true,
-    },
-    lastName: {
-      type: String,
-      trim: true,
-    },
-    phoneNumber: {
-      type: String,
-    },
-    bio: {
-      type: String,
-    },
-    healthId: {
-      type: Schema.Types.ObjectId,
-      ref: "Health",
-    },
-    role: {
-      type: String,
-      enum: Object.values(UserRole),
-      default: UserRole.PATIENT,
-      required: true,
-    },
+    }],
   },
   {
     timestamps: true,
     toJSON: {
       transform: (_doc, ret) => {
         delete ret.__v;
-        delete ret.password;
         return ret;
       },
     },
   }
 );
 
-export const User = mongoose.model<IUser>("User", userSchema);
+healthSchema.pre('save', function(next) {
+  if (this.weight && this.height) {
+    const heightInMeters = this.height / 100;
+    this.bmi = Math.round((this.weight / (heightInMeters * heightInMeters)) * 100) / 100;
+  }
+  next();
+});
+
+healthSchema.pre(['findOneAndUpdate', 'updateOne'], function(next) {
+  const update = this.getUpdate() as any;
+  
+  if (update.weight && update.height) {
+    const heightInMeters = update.height / 100;
+    update.bmi = Math.round((update.weight / (heightInMeters * heightInMeters)) * 100) / 100;
+  }
+  
+  next();
+});
+
+healthSchema.index({ userId: 1 });
+
+export const Health = mongoose.model<IHealth>("Health", healthSchema);

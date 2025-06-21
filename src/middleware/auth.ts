@@ -104,7 +104,7 @@ class AuthMiddleware {
     };
   };
 
-  public requireDoctor = this.requireRole([UserRole.DOCTOR]);
+  public requireDoctor = this.requireRole([UserRole.ADMIN]);
 
   public requirePatient = this.requireRole([UserRole.PATIENT]);
 

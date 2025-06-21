@@ -170,9 +170,9 @@ export class UserController {
       }
 
       // Check if user has permission to view other users
-      if (requestingUser.role !== UserRole.DOCTOR && requestingUser.id !== id) {
+      if (requestingUser.role !== UserRole.ADMIN && requestingUser.id !== id) {
         throw new InsufficientPermissionsError(
-          [UserRole.DOCTOR],
+          [UserRole.ADMIN],
           requestingUser.role
         );
       }
@@ -206,9 +206,9 @@ export class UserController {
       }
 
       // Check if user has permission to view all users
-      if (requestingUser.role !== UserRole.DOCTOR) {
+      if (requestingUser.role !== UserRole.ADMIN) {
         throw new InsufficientPermissionsError(
-          [UserRole.DOCTOR],
+          [UserRole.ADMIN],
           requestingUser.role
         );
       }
@@ -269,9 +269,9 @@ export class UserController {
         throw new UnauthorizedError();
       }
 
-      if (requestingUser.role !== UserRole.DOCTOR && requestingUser.id !== id) {
+      if (requestingUser.role !== UserRole.ADMIN && requestingUser.id !== id) {
         throw new InsufficientPermissionsError(
-          [UserRole.DOCTOR],
+          [UserRole.ADMIN],
           requestingUser.role
         );
       }
