@@ -104,7 +104,7 @@ class AuthMiddleware {
     };
   };
 
-  public requireDoctor = this.requireRole([UserRole.ADMIN]);
+  public requireAdmin = this.requireRole([UserRole.ADMIN]);
 
   public requirePatient = this.requireRole([UserRole.PATIENT]);
 
@@ -143,7 +143,7 @@ class AuthMiddleware {
 const authMiddleware = new AuthMiddleware();
 
 export const authenticateToken = authMiddleware.authenticateToken;
-export const requireDoctor = authMiddleware.requireDoctor;
+export const requireAdmin = authMiddleware.requireAdmin;
 export const requirePatient = authMiddleware.requirePatient;
 
 export default AuthMiddleware;

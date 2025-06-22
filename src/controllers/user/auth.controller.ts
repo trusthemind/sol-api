@@ -85,6 +85,7 @@ export class AuthController {
         avatar: user.avatar,
         firstName: user.firstName,
         lastName: user.lastName,
+        role: user.role,
       };
       return res.status(200).json({
         token,

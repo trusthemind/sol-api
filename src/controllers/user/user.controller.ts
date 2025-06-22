@@ -200,13 +200,13 @@ export class UserController {
   public getAllUsers = asyncHandler(
     async (req: Request, res: Response, next: NextFunction) => {
       const requestingUser = req.user;
-
       if (!requestingUser) {
         throw new UnauthorizedError();
       }
 
-      // Check if user has permission to view all users
+      this.logger.info(requestingUser.role);
       if (requestingUser.role !== UserRole.ADMIN) {
+        this.logger.error("Not valid user");
         throw new InsufficientPermissionsError(
           [UserRole.ADMIN],
           requestingUser.role
@@ -266,10 +266,11 @@ export class UserController {
       const requestingUser = req.user;
 
       if (!requestingUser) {
+        this.logger.error("delete error");
         throw new UnauthorizedError();
       }
-
       if (requestingUser.role !== UserRole.ADMIN && requestingUser.id !== id) {
+        this.logger.error("delete error");
         throw new InsufficientPermissionsError(
           [UserRole.ADMIN],
           requestingUser.role

@@ -8,6 +8,7 @@ import { emotionRouter } from "./routes/emotion";
 import { streakRouter } from "./routes/streak";
 
 import { errorHandler } from "./errors";
+import { adminRouter } from "./routes/admin";
 
 const app = express();
 
@@ -30,11 +31,11 @@ app.use(helmet());
 app.use(express.json());
 app.use(rateLimit({ windowMs: 15 * 60 * 1000, max: 100 }));
 
-// Ваші маршрути
 app.use("/api/health", (_, res) => {
   res.status(200).json({ status: "OK", message: "Service is healthy" });
 });
 
+app.use("/api/admin", adminRouter);
 app.use("/api/auth", authRouter);
 app.use("/api/users", userRouter);
 app.use("/api/emotions", emotionRouter);

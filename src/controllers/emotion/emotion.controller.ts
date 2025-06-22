@@ -48,12 +48,10 @@ export class EmotionController {
       );
     }
 
-    // Валідація та конвертація емоції
     if (!EmotionUtils.isValidEmotion(emotion)) {
       throw new InvalidEmotionDataError(`Невірна емоція: ${emotion}`);
     }
 
-    // Валідація та нормалізація intensity
     const normalizedIntensity = EmotionUtils.normalizeIntensity(intensity);
     const normalizedStressLevel = stressLevel
       ? EmotionUtils.normalizeIntensity(stressLevel)
@@ -61,7 +59,7 @@ export class EmotionController {
 
     const emotionData = {
       userId,
-      emotion: EmotionUtils.toEnglish(emotion), // Переводимо в англійську для БД
+      emotion: EmotionUtils.toEnglish(emotion),
       intensity: normalizedIntensity,
       description,
       triggers,
@@ -77,7 +75,6 @@ export class EmotionController {
       throw new EmotionCreationFailedError(error.message);
     }
 
-    // Оновлюємо стрік після успішного створення емоції
     let streak;
     try {
       await this.updateUserStreak(userId);
