@@ -194,8 +194,8 @@ export class OpenAIService {
     - Загальна кількість записів: ${stats.totalEntries}
     - Середня інтенсивність: ${stats.averageIntensity}
     - Найчастіша інтенсивність: ${stats.mostCommonIntensity}
-    - Найчастіша емоція: ${stats.mostCommonEmotion} (${EmotionUtils.toUkrainian(
-      stats.mostCommonEmotion
+    - Найчастіша емоція: ${stats.mostCommonEmotion ?? "невідомо"} (${EmotionUtils.toUkrainian(
+      stats.mostCommonEmotion ?? EmotionType.NEUTRAL
     )})
     - Середній рівень стресу: ${stats.averageStressLevel}
 
@@ -259,8 +259,8 @@ export class OpenAIService {
 
     Середня інтенсивність: ${stats.averageIntensity}
     Найчастіша інтенсивність: ${stats.mostCommonIntensity}
-    Найчастіша емоція: ${stats.mostCommonEmotion} (${EmotionUtils.toUkrainian(
-      stats.mostCommonEmotion
+    Найчастіша емоція: ${stats.mostCommonEmotion ?? "невідомо"} (${EmotionUtils.toUkrainian(
+      stats.mostCommonEmotion ?? EmotionType.NEUTRAL
     )})
     Середній рівень стресу: ${stats.averageStressLevel}
     Загальна кількість записів: ${stats.totalEntries}
@@ -298,8 +298,8 @@ export class OpenAIService {
       totalEntries: stats.totalEntries,
       averageIntensity: stats.averageIntensity,
       mostCommonIntensity: stats.mostCommonIntensity,
-      dominantEmotion: `${stats.mostCommonEmotion} (${EmotionUtils.toUkrainian(
-        stats.mostCommonEmotion
+      dominantEmotion: `${stats.mostCommonEmotion ?? "невідомо"} (${EmotionUtils.toUkrainian(
+        stats.mostCommonEmotion ?? EmotionType.NEUTRAL
       )})`,
       averageStressLevel: stats.averageStressLevel,
     })}
@@ -398,19 +398,7 @@ export class OpenAIService {
       positives.push("Ви підтримуєте емоційну стабільність");
     }
 
-    if (stats.averageIntensity > 7) {
-      concerns.push("Висока середня інтенсивність емоцій");
-      riskFactors.push("Емоційне перевантаження");
-    } else if (stats.averageIntensity >= 4 && stats.averageIntensity <= 6) {
-      positives.push("Збалансована емоційна інтенсивність");
-    }
 
-    if (stats.averageStressLevel > 7) {
-      concerns.push("Виявлено підвищений рівень стресу");
-      riskFactors.push("Хронічний високий стрес");
-    } else if (stats.averageStressLevel < 4) {
-      positives.push("Добре керований рівень стресу");
-    }
 
     const negativeEmotions = [
       EmotionType.SAD,
@@ -439,15 +427,7 @@ export class OpenAIService {
       insights.push("Доступні обмежені дані відстеження");
     }
 
-    if (stats.mostCommonIntensity >= 9) {
-      concerns.push("Переважають емоції дуже високої інтенсивності");
-      riskFactors.push("Патерни емоційного перевантаження");
-    } else if (
-      stats.mostCommonIntensity >= 4 &&
-      stats.mostCommonIntensity <= 6
-    ) {
-      positives.push("Збалансовані рівні емоційної інтенсивності");
-    }
+    
 
     return {
       insights,
@@ -523,19 +503,7 @@ export class OpenAIService {
       };
     }
 
-    if (stats.averageStressLevel > 7) {
-      immediate.push("Практикуйте глибоке дихання");
-      immediate.push("Робіть короткі перерви протягом дня");
-      shortTerm.push("Розгляньте техніки управління стресом");
-      professionalHelp = true;
-    }
-
-    if (stats.averageIntensity > 7) {
-      immediate.push("Використовуйте техніки заземлення");
-      coping.push("Вправа сенсорного заземлення 5-4-3-2-1");
-      shortTerm.push("Практикуйте навички емоційної регуляції");
-    }
-
+ 
     const sadnessCount = stats.emotionDistribution[EmotionType.SAD] || 0;
     if (sadnessCount > stats.totalEntries * 0.3) {
       immediate.push("Займіться улюбленими справами");
@@ -627,7 +595,7 @@ export class OpenAIService {
     const positiveRatio =
       stats.totalEntries > 0 ? positiveCount / stats.totalEntries : 0;
 
-    const intensityFactor = 1 - (stats.averageIntensity - 1) / 9;
+    const intensityFactor = 1 - ((stats.averageIntensity ?? 5) - 1) / 9;
     const stressFactor = stats.averageStressLevel
       ? (11 - stats.averageStressLevel) / 10
       : 0.5;

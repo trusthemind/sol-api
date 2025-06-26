@@ -56,6 +56,7 @@ export class EmotionAIController {
       throw new OpenAIServiceError("аналіз емоцій", error.message);
     }
 
+    this.logger.info("Asdasd", stats);
     return res.status(200).json({
       success: true,
       data: {
